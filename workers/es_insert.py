@@ -1,12 +1,8 @@
-import hal
-import qd
 import requests
 import time
-import utils
-import dimensions
+from libs import utils, qd
 import os
 
-import asyncio
 from elasticsearch import Elasticsearch
 from fold_to_ascii import fold
 from fuzzywuzzy import fuzz
@@ -132,25 +128,28 @@ while increment < count:
                     else:
                         notice["has_abstract"] = False
 
+                    """
                     # get metrics
-                    hal_metrics = hal.getMetrics(notice["halId_s"])
+                    hal_metrics = hal.get_metrics(notice["halId_s"])
                     if "times_viewed" in hal_metrics:
                         notice["times_viewed"] = hal_metrics["times_viewed"]
                     if "times_downloaded" in hal_metrics:
                         notice["times_downloaded"] = hal_metrics["times_downloaded"]
 
                     if "doiId_s" in notice:
-                        dimensions_metrics = dimensions.getMetrics(notice["doiId_s"])
+                        dimensions_metrics = dimensions.get_metrics(notice["doiId_s"])
                         if "times_cited" in dimensions_metrics:
                             notice["times_cited"] = dimensions_metrics["times_cited"]
                         if "field_citation_ratio" in dimensions_metrics:
                             notice["field_citation_ratio"] = dimensions_metrics["field_citation_ratio"]
+                    """
 
                     # filters
                     if "domain_s" not in notice:
                         notice["domain_s"] = None
                     if "instStructIdName_fs" not in notice:
                         notice["instStructIdName_fs"] = None
+                    """
                     if "times_viewed" not in notice:
                         notice["times_viewed"] = None
                     if "times_downloaded" not in notice:
@@ -159,6 +158,7 @@ while increment < count:
                         notice["times_cited"] = None
                     if "field_citation_ratio" not in notice:
                         notice["field_citation_ratio"] = None
+                    """
                     if 'doiId_s' not in notice:
                         notice["doiId_s"] = None
                     if "publicationDateY_i" not in notice:
@@ -189,11 +189,13 @@ while increment < count:
 
                         "contributor_type": notice["contributor_type"],
 
+                        """
                         "times_viewed": notice["times_viewed"],
                         "times_downloaded": notice["times_downloaded"],
 
                         "times_cited": notice["times_cited"],
                         "field_citation_ratio": notice["field_citation_ratio"],
+                        """
 
                         "domain_s": notice["domain_s"],
                         "primaryDomain_s": notice["primaryDomain_s"],

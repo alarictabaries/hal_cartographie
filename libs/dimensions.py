@@ -1,7 +1,7 @@
 import requests
 
 
-def getMetrics(doiId_s):
+def get_metrics(doiId_s):
     res = {}
     response = requests.request("GET", "https://metrics-api.dimensions.ai/doi/" + doiId_s)
     if response.status_code == 200:

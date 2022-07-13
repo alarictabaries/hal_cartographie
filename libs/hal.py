@@ -4,7 +4,7 @@ import time
 from bs4 import BeautifulSoup
 
 
-def getMetrics(halId_s):
+def get_metrics(halId_s):
 
     res = {}
     notice = requests.get("https://hal.archives-ouvertes.fr/" + halId_s)
