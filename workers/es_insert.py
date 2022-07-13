@@ -170,12 +170,25 @@ while increment < count:
                     if "modifiedDate_tdate" not in notice:
                         notice["modifiedDate_tdate"] = None
 
+                    # formatter
+                    notice["inst_name"] = []
+                    notice["lab_name"] = []
+
+                    for inst in notice["instStructIdName_fs"]:
+                        notice["inst_name"].append(inst.split("_FacetSep_")[1])
+                    for lab in notice["labStructIdName_fs"]:
+                        notice["lab_name"].append(lab.split("_FacetSep_")[1])
+
                     notice_short = {
                         "halId_s": notice["halId_s"],
                         "docType_s": notice["docType_s"],
 
                         "instStructIdName_fs": notice["instStructIdName_fs"],
                         "labStructIdName_fs": notice["labStructIdName_fs"],
+
+                        "inst_name": notice["inst_name"],
+                        "lab_name": notice["lab_name"],
+
                         "authIdHal_s": notice["authIdHal_s"],
 
                         "submittedDate_tdate": notice["submittedDate_tdate"],
