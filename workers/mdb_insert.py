@@ -1,28 +1,27 @@
-import requests
 import time
-from libs import utils, qd
-import os
+from datetime import datetime
 
-from elasticsearch import Elasticsearch
+import requests
 from fold_to_ascii import fold
 from fuzzywuzzy import fuzz
 from nested_lookup import nested_lookup
+from pymongo import MongoClient
 
-from datetime import datetime
+from libs import utils, qd
 
-es = Elasticsearch(hosts="http://elastic:" + os.environ.get('ES_PASSWORD') + "@localhost:9200/")
+client = MongoClient('mongodb://localhost:27017/')
+col_notices = client.hal.notices
 
 flags = 'docid,halId_s,doiId_s,openAccess_bool,authIdHal_s,submittedDate_tdate,modifiedDate_tdate' \
         'fileMain_s,title_s,*_abstract_s,*_keyword_s,fulltext_t,domain_s,primaryDomain_s,docType_s,labStructIdName_fs,' \
         'conferenceEndDate_tdate,conferenceStartDate_tdate,defenseDate_tdate,ePublicationDate_tdate,' \
         'producedDate_tdate,publicationDate_tdate,releasedDate_tdate,writingDate_tdate,instStructIdName_fs,' \
         'submittedDateY_i,modifiedDateY_i,contributorId_i,contributorFullName_s,authFullName_s,structAddress_s,' \
-        'authIdHasStructure_fs,structCode_s,structIdName_fs,structHasAlphaAuthId_fs,fileMain_s '
+        'authIdHasStructure_fs,structCode_s,structIdName_fs,structHasAlphaAuthId_fs,fileMain_s'
 
 increment = 0
 count = 1
-db_initialization = True
-db_exists = es.indices.exists(index="hal")
+rows = 1000
 
 while increment < count:
 
@@ -30,26 +29,30 @@ while increment < count:
     print(increment, end="/")
     print(count)
 
-    req = requests.get('http://api.archives-ouvertes.fr/search/?q=*&fl=' + flags + '&start=' + str(
-        increment) + "&rows=10000")
+    res_status_ok = False
 
-    if req.status_code == 200:
-        data = req.json()
+    while not res_status_ok:
 
-        if "response" in data.keys():
+        req = requests.get('https://api.archives-ouvertes.fr/search/?q=*&fl=' + flags + '&start=' + str(
+            increment) + "&rows=" + str(rows))
 
-            data = data['response']
-            count = data['numFound']
+        if req.status_code == 200:
+            data = req.json()
 
-            # unit treatment
-            for notice in data['docs']:
+            if "error" in data.keys():
+                print("Error: ", end=":")
+                print(data["error"])
+                time.sleep(60)
 
-                if db_exists:
-                    already_created = es.search(index="hal", query={"match": {"_id": notice["docid"]}})["hits"]["total"]["value"]
-                else:
-                    already_created = 0
+            if "response" in data.keys():
 
-                if already_created == 0 and db_initialization:
+                res_status_ok = True
+
+                data = data['response']
+                count = data['numFound']
+
+                # unit treatment
+                for notice in data['docs']:
 
                     if "modifiedDateY_i" not in notice:
                         notice["modifiedDateY_i"] = notice["submittedDateY_i"]
@@ -135,7 +138,7 @@ while increment < count:
                         notice["times_viewed"] = hal_metrics["times_viewed"]
                     if "times_downloaded" in hal_metrics:
                         notice["times_downloaded"] = hal_metrics["times_downloaded"]
-
+    
                     if "doiId_s" in notice:
                         dimensions_metrics = dimensions.get_metrics(notice["doiId_s"])
                         if "times_cited" in dimensions_metrics:
@@ -163,23 +166,37 @@ while increment < count:
                         notice["doiId_s"] = None
                     if "publicationDateY_i" not in notice:
                         notice["publicationDateY_i"] = None
+                    if "modifiedDate_tdate" not in notice:
+                        notice["modifiedDate_tdate"] = None
+                    else:
+                        notice["modifiedDate_tdate"] = datetime.fromisoformat(notice["modifiedDate_tdate"][:-1])
+                    if "submittedDate_tdate" not in notice:
+                        notice["submittedDate_tdate"] = None
+                    else:
+                        notice["submittedDate_tdate"] = datetime.fromisoformat(notice["submittedDate_tdate"][:-1])
                     if "labStructIdName_fs" not in notice:
                         notice["labStructIdName_fs"] = None
                     if "authIdHal_s" not in notice:
                         notice["authIdHal_s"] = None
-                    if "modifiedDate_tdate" not in notice:
-                        notice["modifiedDate_tdate"] = None
 
                     # formatter
                     notice["inst_name"] = []
                     notice["lab_name"] = []
 
-                    for inst in notice["instStructIdName_fs"]:
-                        notice["inst_name"].append(inst.split("_FacetSep_")[1])
-                    for lab in notice["labStructIdName_fs"]:
-                        notice["lab_name"].append(lab.split("_FacetSep_")[1])
+                    if notice["instStructIdName_fs"] is not None:
+                        for inst in notice["instStructIdName_fs"]:
+                            notice["inst_name"].append(inst.split("_FacetSep_")[1])
+                    else:
+                        notice["inst_name"] = None
+                    if notice["labStructIdName_fs"] is not None:
+                        for lab in notice["labStructIdName_fs"]:
+                            notice["lab_name"].append(lab.split("_FacetSep_")[1])
+                    else:
+                        notice["lab_name"] = None
 
                     notice_short = {
+                        "docid": notice["docid"],
+
                         "halId_s": notice["halId_s"],
                         "docType_s": notice["docType_s"],
 
@@ -202,14 +219,6 @@ while increment < count:
 
                         "contributor_type": notice["contributor_type"],
 
-                        """
-                        "times_viewed": notice["times_viewed"],
-                        "times_downloaded": notice["times_downloaded"],
-
-                        "times_cited": notice["times_cited"],
-                        "field_citation_ratio": notice["field_citation_ratio"],
-                        """
-
                         "domain_s": notice["domain_s"],
                         "primaryDomain_s": notice["primaryDomain_s"],
 
@@ -221,7 +230,7 @@ while increment < count:
                         "has_abstract": notice["has_abstract"],
                         "has_keywords": notice["has_keywords"],
 
-                        "harvested_on": datetime.now().isoformat()
+                        "harvested_on": datetime.now()
                     }
 
                     """
@@ -230,6 +239,6 @@ while increment < count:
                             del notice_short[key]
                     """
 
-                    es.index(index="hal", id=notice["docid"], document=notice_short)
+                    res = col_notices.insert_one(notice_short).inserted_id
 
-            increment += 10000
+    increment += rows
