@@ -1,5 +1,8 @@
 import time
 from datetime import datetime
+import re
+import dateutil.parser
+from dateutil.relativedelta import relativedelta
 
 import requests
 from fold_to_ascii import fold
@@ -12,16 +15,20 @@ from libs import utils, qd
 client = MongoClient('mongodb://localhost:27017/')
 col_notices = client.hal.notices
 
-flags = 'docid,halId_s,doiId_s,openAccess_bool,authIdHal_s,submittedDate_tdate,modifiedDate_tdate' \
+flags = 'docid,halId_s,authIdHal_s,doiId_s,openAccess_bool,authIdHal_s,submittedDate_tdate,modifiedDate_tdate' \
         'fileMain_s,title_s,*_abstract_s,*_keyword_s,fulltext_t,domain_s,primaryDomain_s,docType_s,labStructIdName_fs,' \
         'conferenceEndDate_tdate,conferenceStartDate_tdate,defenseDate_tdate,ePublicationDate_tdate,' \
         'producedDate_tdate,publicationDate_tdate,releasedDate_tdate,writingDate_tdate,instStructIdName_fs,' \
         'submittedDateY_i,modifiedDateY_i,contributorId_i,contributorFullName_s,authFullName_s,structAddress_s,' \
-        'authIdHasStructure_fs,structCode_s,structIdName_fs,structHasAlphaAuthId_fs,fileMain_s'
+        'authIdHasStructure_fs,structCode_s,structIdName_fs,structHasAlphaAuthId_fs,fileMain_s,' \
+        'journalSherpaPrePrint_s,journalSherpaPostPrint_s,journalSherpaPostRest_s,journalSherpaPreRest_s,selfArchiving_bool,uri_s'
 
 increment = 0
 count = 1
-rows = 1000
+rows = 10000
+
+gte = 2002
+lte = 2007
 
 while increment < count:
 
@@ -34,7 +41,7 @@ while increment < count:
     while not res_status_ok:
 
         req = requests.get('https://api.archives-ouvertes.fr/search/?q=*&fl=' + flags + '&start=' + str(
-            increment) + "&rows=" + str(rows))
+            increment) + "&rows=" + str(rows) + "&fq=submittedDateY_i:[" + str(gte) + " TO " + str(lte) + "]")
 
         if req.status_code == 200:
             data = req.json()
@@ -58,23 +65,56 @@ while increment < count:
                         notice["modifiedDateY_i"] = notice["submittedDateY_i"]
 
                     # author treatment
-                    notice["contributor_type"] = 0
-                    contributor = "-1"
+                    if notice["selfArchiving_bool"] is True:
+                        notice["contributor_type"] = "self"
+                    else:
+                        print("to-do")
+                        # to-do notes : recherche par auteur (multicritères) > possibilité de trouver le nb de
+                        # dépôts pour le contributeur
+                        # recherche par nom complet > non sensible à la casse et aux accents
 
-                    if 'authFullName_s' in notice and 'contributorFullName_s' in notice:
-                        for auth in notice["authFullName_s"]:
-                            if fuzz.ratio(fold(auth), fold(notice["contributorFullName_s"])) > 70:
-                                contributor = auth
-                                notice["contributor_type"] = 1
-
-                    if contributor == "-1":
-                        if 'contributorFullName_s' in notice:
-                            res = utils.is_a_name(notice["contributorFullName_s"])
-                            if not res:
-                                notice["contributor_type"] = 2
 
                     # QD
                     notice["qd"] = round(qd.calculate(notice), 4)
+
+                    # SHERPA/RoMEO embargo
+                    notice["postprint_embargo"] = None
+                    if 'fileMain_s' not in notice or notice["openAccess_bool"] is False or "linkExtUrl_s" not in notice:
+                        if "journalSherpaPostPrint_s" in notice:
+                            if notice['journalSherpaPostPrint_s'] == 'can':
+                                notice["postprint_embargo"] = "false"
+                            elif notice['journalSherpaPostPrint_s'] == 'restricted' and "publicationDate_tdate" in notice and "journalSherpaPostRest_s" in notice:
+                                matches = re.finditer('(\S+\s+){2}(?=embargo)', notice["journalSherpaPostRest_s"].replace('[', ' '))
+                                for match in matches:
+                                    duration = match.group().split(' ')[0]
+                                    if duration.isnumeric():
+                                        publication_date = dateutil.parser.parse(notice["publicationDate_tdate"]).replace(tzinfo=None)
+
+                                        curr_date = datetime.now()
+                                        age = relativedelta(curr_date, publication_date)
+                                        age_in_months = age.years * 12 + age.months
+
+                                        if age_in_months > int(duration):
+                                            notice["postprint_embargo"] = "false"
+                                        else:
+                                            notice["postprint_embargo"] = "true"
+                            elif notice["journalSherpaPostPrint_s"] == 'cannot':
+                                notice["postprint_embargo"] = "true"
+                            else:
+                                notice["postprint_embargo"] = None
+
+                    notice["preprint_embargo"] = None
+                    if 'fileMain_s' not in notice or notice["openAccess_bool"] is False or "linkExtUrl_s" not in notice:
+                        if "journalSherpaPrePrint_s" in notice:
+                            if notice['journalSherpaPrePrint_s'] == 'can':
+                                notice["preprint_embargo"] = "false"
+                            elif notice['journalSherpaPrePrint_s'] == 'restricted' and "journalSherpaPreRest_s" in notice:
+                                if "Must obtain written permission from Editor" in notice["journalSherpaPreRest_s"]:
+                                    notice["preprint_embargo"] = "perm_from_editor"
+                            elif notice["journalSherpaPrePrint_s"] == 'cannot':
+                                notice["preprint_embargo"] = "true"
+                            else:
+                                notice["preprint_embargo"] = None
 
                     # get QD parameters individually
                     notice["has_file"] = False
@@ -199,6 +239,9 @@ while increment < count:
 
                         "halId_s": notice["halId_s"],
                         "docType_s": notice["docType_s"],
+                        "uri_s": notice["uri_s"],
+
+                        "authIdHal_s": notice["authIdHal_s"],
 
                         "instStructIdName_fs": notice["instStructIdName_fs"],
                         "labStructIdName_fs": notice["labStructIdName_fs"],
@@ -216,6 +259,9 @@ while increment < count:
                         "modifiedDateY_i": notice["modifiedDateY_i"],
 
                         "qd": notice["qd"],
+
+                        "preprint_embargo": notice["preprint_embargo"],
+                        "postprint_embargo": notice["postprint_embargo"],
 
                         "contributor_type": notice["contributor_type"],
 

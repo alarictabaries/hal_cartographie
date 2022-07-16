@@ -19,7 +19,7 @@ def update_notices(gte, lte):
         }
     }):
 
-        hal_metrics = hal.get_metrics(notice["halId_s"])
+        hal_metrics = hal.get_metrics(notice["uri_s"])
         if "times_viewed" in hal_metrics:
             notice["times_viewed"] = hal_metrics["times_viewed"]
         if "times_downloaded" in hal_metrics:
