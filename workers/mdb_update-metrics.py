@@ -19,12 +19,23 @@ def update_notices(gte, lte):
         }
     }):
 
+        # compute type of deposit
+        if notice["contributionType"] != "self":
+            notices_created = hal.count_notices("contributorId_i", int(notice["contributor_type"].split("_FacetSep_")[2]))
+            if notices_created > 1000:
+                notice["contributionType"] = "automated"
+            else:
+                print("to-do")
+                # https://www.theses.fr/?q=auteur:alaric%20tabaries&format=json
+
+        # get HAL metrics
         hal_metrics = hal.get_metrics(notice["uri_s"])
         if "times_viewed" in hal_metrics:
             notice["times_viewed"] = hal_metrics["times_viewed"]
         if "times_downloaded" in hal_metrics:
             notice["times_downloaded"] = hal_metrics["times_downloaded"]
 
+        # get Dimensions metrics
         if notice["doiId_s"] is not None:
             dimensions_metrics = dimensions.get_metrics(notice["doiId_s"])
             if "times_cited" in dimensions_metrics:

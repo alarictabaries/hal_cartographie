@@ -4,6 +4,21 @@ import time
 from bs4 import BeautifulSoup
 
 
+def count_notices(field, value):
+    res_status_ok = False
+    while not res_status_ok:
+        req = requests.get('https://api.archives-ouvertes.fr/search/?q=' + field + ':' + value)
+        if req.status_code == 200:
+            data = req.json()
+            if "error" in data.keys():
+                print("Error: ", end=":")
+                print(data["error"])
+                time.sleep(60)
+
+            if "response" in data.keys():
+                return data["response"]["numFound"]
+
+
 def get_metrics(uri_s):
 
     res = {}

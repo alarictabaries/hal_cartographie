@@ -19,7 +19,7 @@ flags = 'docid,halId_s,authIdHal_s,doiId_s,openAccess_bool,authIdHal_s,submitted
         'fileMain_s,title_s,*_abstract_s,*_keyword_s,fulltext_t,domain_s,primaryDomain_s,docType_s,labStructIdName_fs,' \
         'conferenceEndDate_tdate,conferenceStartDate_tdate,defenseDate_tdate,ePublicationDate_tdate,' \
         'producedDate_tdate,publicationDate_tdate,releasedDate_tdate,writingDate_tdate,instStructIdName_fs,' \
-        'submittedDateY_i,modifiedDateY_i,contributorId_i,contributorFullName_s,authFullName_s,structAddress_s,' \
+        'submittedDateY_i,modifiedDateY_i,contributorId_i,contributorFullName_s,contributorFullNameId_fs,authFullName_s,structAddress_s,' \
         'authIdHasStructure_fs,structCode_s,structIdName_fs,structHasAlphaAuthId_fs,fileMain_s,' \
         'journalSherpaPrePrint_s,journalSherpaPostPrint_s,journalSherpaPostRest_s,journalSherpaPreRest_s,selfArchiving_bool,uri_s'
 
@@ -28,7 +28,7 @@ count = 1
 rows = 10000
 
 gte = 2002
-lte = 2007
+lte = 2008
 
 while increment < count:
 
@@ -37,11 +37,10 @@ while increment < count:
     print(count)
 
     res_status_ok = False
-
     while not res_status_ok:
 
         req = requests.get('https://api.archives-ouvertes.fr/search/?q=*&fl=' + flags + '&start=' + str(
-            increment) + "&rows=" + str(rows) + "&fq=submittedDateY_i:[" + str(gte) + " TO " + str(lte) + "]")
+            increment) + "&rows=" + str(rows) + "&fq=submittedDateY_i:[" + str(gte) + " TO " + str(lte) + "}")
 
         if req.status_code == 200:
             data = req.json()
@@ -68,11 +67,7 @@ while increment < count:
                     if notice["selfArchiving_bool"] is True:
                         notice["contributor_type"] = "self"
                     else:
-                        print("to-do")
-                        # to-do notes : recherche par auteur (multicritères) > possibilité de trouver le nb de
-                        # dépôts pour le contributeur
-                        # recherche par nom complet > non sensible à la casse et aux accents
-
+                        notice["contributor_type"] = "other_FacetSep_" + str(notice["contributorFullNameId_fs"])
 
                     # QD
                     notice["qd"] = round(qd.calculate(notice), 4)
