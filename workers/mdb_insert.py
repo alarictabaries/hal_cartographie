@@ -5,12 +5,10 @@ import dateutil.parser
 from dateutil.relativedelta import relativedelta
 
 import requests
-from fold_to_ascii import fold
-from fuzzywuzzy import fuzz
 from nested_lookup import nested_lookup
 from pymongo import MongoClient
 
-from libs import utils, qd
+from libs import qd
 
 client = MongoClient('mongodb://localhost:27017/')
 col_notices = client.hal.notices
@@ -27,8 +25,9 @@ increment = 0
 count = 1
 rows = 10000
 
-gte = 2002
-lte = 2008
+
+gte = 2012
+lte = 2015
 
 while increment < count:
 
