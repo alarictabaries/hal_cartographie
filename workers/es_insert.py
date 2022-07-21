@@ -1,24 +1,24 @@
 import time
 from datetime import datetime
 import re
+import os
 import dateutil.parser
 from dateutil.relativedelta import relativedelta
 from fold_to_ascii import fold
 
 import requests
 from nested_lookup import nested_lookup
-from pymongo import MongoClient
+from elasticsearch import Elasticsearch
 
 from libs import qd
 
-client = MongoClient('mongodb://localhost:27017/')
-col_notices = client.hal.notices
+es = Elasticsearch(hosts="http://elastic:" + os.environ.get('ES_PASSWORD') + "@localhost:9200/")
 
 flags = 'docid,halId_s,authIdHal_s,doiId_s,openAccess_bool,authIdHal_s,submittedDate_tdate,modifiedDate_tdate' \
         'fileMain_s,title_s,*_abstract_s,*_keyword_s,fulltext_t,domain_s,primaryDomain_s,docType_s,labStructIdName_fs,' \
         'conferenceEndDate_tdate,conferenceStartDate_tdate,defenseDate_tdate,ePublicationDate_tdate,' \
         'producedDate_tdate,publicationDate_tdate,releasedDate_tdate,writingDate_tdate,instStructIdName_fs,' \
-        'submittedDateY_i,modifiedDateY_i,contributorId_i,contributorFullName_s,contributorFullNameId_fs,authFullName_s,structAddress_s,' \
+        'submittedDateY_i,submittedDateM_i,modifiedDateY_i,contributorId_i,contributorFullName_s,contributorFullNameId_fs,authFullName_s,structAddress_s,' \
         'authIdHasStructure_fs,structCode_s,structIdName_fs,structHasAlphaAuthId_fs,fileMain_s,' \
         'journalSherpaPrePrint_s,journalSherpaPostPrint_s,journalSherpaPostRest_s,journalSherpaPreRest_s,selfArchiving_bool,uri_s'
 
@@ -29,10 +29,11 @@ rows = 10000
 
 # gte = 2019
 # lte = 2020
-# to-do : >"2021-06-01T00:00:00Z"
+# to-do : >"2017-07-01T00:00:00Z"
 
-gte = "2022-06-01T00:00:00Z"
+gte = "2022-01-01T00:00:00Z"
 lte = "2022-07-01T00:00:00Z"
+
 
 while increment < count:
 
@@ -44,7 +45,7 @@ while increment < count:
     while not res_status_ok:
 
         req = requests.get('https://api.archives-ouvertes.fr/search/?q=*&fl=' + flags + '&start=' + str(
-            increment) + "&rows=" + str(rows) + "&fq=submittedDate_tdate:[" + str(gte) + " TO " + str(lte) + "}")
+            increment) + "&rows=" + str(rows) + "&fq=submittedDate_tdate:[" + str(gte) + " TO " + str(lte) +  "}&sort=docid%20asc")
 
         if req.status_code == 200:
             data = req.json()
@@ -72,12 +73,13 @@ while increment < count:
                         notice["contributor_type"] = "self"
                     else:
                         hal_error = False
-                        for name in notice["authFullName_s"]:
-                            if fold(name.lower()) in fold(notice["contributorFullName_s"].lower()):
-                                notice["contributor_type"] = "self"
-                                hal_error = True
+                        if "authFullName_s" in notice:
+                            for name in notice["authFullName_s"]:
+                                if fold(name.lower()) in fold(notice["contributorFullName_s"].lower()):
+                                    notice["contributor_type"] = "self"
+                                    hal_error = True
                         if hal_error is False:
-                            notice["contributor_type"] = "other_FacetSep_" + str(notice["contributorFullNameId_fs"])
+                                 notice["contributor_type"] = "other_FacetSep_" + str(notice["contributorFullNameId_fs"])
 
                     # QD
                     notice["qd"] = round(qd.calculate(notice), 4)
@@ -261,6 +263,7 @@ while increment < count:
 
                         "publicationDateY_i": notice["publicationDateY_i"],
                         "submittedDateY_i": notice["submittedDateY_i"],
+                        "submittedDateM_i": notice["submittedDateM_i"],
                         "modifiedDateY_i": notice["modifiedDateY_i"],
 
                         "qd": notice["qd"],
@@ -290,6 +293,10 @@ while increment < count:
                             del notice_short[key]
                     """
 
-                    res = col_notices.insert_one(notice_short).inserted_id
+                    res = es.index(index="hal", id=notice["docid"], document=notice_short)
+                    if res["_shards"]["successful"] == 0:
+                        print("Error indexing")
+                        print(notice_short)
+                        print("\n")
 
     increment += rows
