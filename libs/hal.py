@@ -36,16 +36,26 @@ def get_metrics(uri_s):
     res_ok = False
     res_retries = 0
 
-    while res_ok is False or res_retries < 4:
+    while res_ok is False and res_retries < 4:
         notice = http.get(uri_s, verify=False)
         soup = BeautifulSoup(notice.text, 'html.parser')
-        metrics = soup.find_all(class_='widget-metrics')[0].find(class_="row").findChildren(recursive=False)
-        for metric in metrics:
-            if "Consultations de la notice" in metric.text:
-                res['times_viewed'] = metric.find_all(class_="label-primary")[0].text
-                res_ok = True
-            if "Téléchargements de fichiers" in metric.text:
-                res['times_downloaded'] = metric.find_all(class_="label-primary")[0].text
+        try:
+            metrics = soup.find_all(class_='widget-metrics')[0].find(class_="row").findChildren(recursive=False)
+            for metric in metrics:
+                if "Consultations de la notice" in metric.text:
+                    res['times_viewed'] = int(metric.find_all(class_="label-primary")[0].text)
+                    res_ok = True
+                if "Téléchargements de fichiers" in metric.text:
+                    res['times_downloaded'] = int(metric.find_all(class_="label-primary")[0].text)
+        except:
+            if "Le document n'est pas visible dans cet espace." in soup.find_all(class_='jumbotron')[0].text:
+                uri_s = "https://hal.archives-ouvertes.fr/" + uri_s.split("/")[-1]
+            else:
+                time.sleep(1)
         res_retries += 1
+
+    if res_ok is False:
+        print(uri_s)
+        print("error retrieving metrics")
 
     return res
