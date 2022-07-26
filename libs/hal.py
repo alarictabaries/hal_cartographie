@@ -6,8 +6,8 @@ from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 
 retry_strategy = Retry(
-    total=4,
-    backoff_factor=1,
+    total=2,
+    backoff_factor=0.2,
     status_forcelist=[429, 500, 502, 503, 504],
     allowed_methods=["HEAD", "GET", "DELETE", "PUT", "OPTIONS"]
 )
@@ -51,7 +51,7 @@ def get_metrics(uri_s):
             if "Le document n'est pas visible dans cet espace." in soup.find_all(class_='jumbotron')[0].text:
                 uri_s = "https://hal.archives-ouvertes.fr/" + uri_s.split("/")[-1]
             else:
-                time.sleep(1)
+                time.sleep(0.3)
         res_retries += 1
 
     if res_ok is False:
