@@ -80,12 +80,12 @@ def update_notices(gte, lte):
     print("Thread (end) : Processed {} notices".format(count))
 
 
-min_submitted_year = 2004
-max_submitted_year = 2006
+min_submitted_year = 2006
+max_submitted_year = 2023
 
 print(time.strftime("%H:%M:%S", time.localtime()) + ": Scraping started")
 
-step = 4
+step = 15
 for year in range(min_submitted_year, max_submitted_year):
     for month in range(1, 13):
         for day in range(1, calendar.monthrange(year, month)[1] + 1, step):
