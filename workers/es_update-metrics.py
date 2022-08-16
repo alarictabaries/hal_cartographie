@@ -52,11 +52,6 @@ def update_notices(gte, lte):
     q = {
         "query": {
             "bool": {
-                "must_not": {
-                    "exists": {
-                      "field": "times_viewed"
-                    },
-                },
                 "must": {
                     "range": {
                         "submittedDate_tdate": {
@@ -64,29 +59,39 @@ def update_notices(gte, lte):
                             "lte": lte
                         }
                     }
+                },
+                "must_not": {
+                    "exists": {
+                        "field": "times_viewed"
+                    }
                 }
             }
         }
     }
 
-    count = es.count(index="hal", body=q)["count"]
-    print("Thread (start) : Processing {} notices".format(count))
+    count = es.count(index="hal2", body=q)["count"]
+    if count == 0:
+        pass
+    else:
+        print("Thread (start) : Processing {} notices".format(count))
+        # preserve_order=True
+        res_scope = scan(es, index="hal2", query=q, scroll="60m", clear_scroll=True)
+        for doc in res_scope:
+            notice = doc["_source"]
+            update_specific_notice(notice)
 
-    res_scope = scan(es, index="hal2", query=q, preserve_order=True, scroll="60m", clear_scroll=True)
-    for doc in res_scope:
-        notice = doc["_source"]
-        update_specific_notice(notice)
-
-    print("Thread (end) : Processed {} notices".format(count))
+        print("Thread (end) : Processed {} notices".format(count))
 
 
-min_submitted_year = 2006
-max_submitted_year = 2023
+# min_submitted_year = 2006
+# max_submitted_year = 2006
+min_submitted_year = 2005
+max_submitted_year = 2021
 
 print(time.strftime("%H:%M:%S", time.localtime()) + ": Scraping started")
 
-step = 15
-for year in range(min_submitted_year, max_submitted_year):
+step = 16
+for year in range(min_submitted_year, max_submitted_year + 1):
     for month in range(1, 13):
         for day in range(1, calendar.monthrange(year, month)[1] + 1, step):
             if (day + step) > calendar.monthrange(year, month)[1]:
