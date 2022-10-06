@@ -19,6 +19,14 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 def update_specific_notice(notice):
     # get HAL metrics
     hal_metrics = hal.get_metrics(notice["uri_s"])
+
+    if "deleted_notice" in hal_metrics:
+        # overkill security
+        if hal_metrics["deleted_notice"]:
+            notice["deleted_notice"] = True
+            es.update(index="hal2", id=notice["docid"], body={"doc": {"deleted": True}})
+            return True
+
     if "times_viewed" in hal_metrics:
         notice["times_viewed"] = hal_metrics["times_viewed"]
     if "times_downloaded" in hal_metrics:
@@ -49,25 +57,40 @@ def update_specific_notice(notice):
 
 
 def update_notices(gte, lte):
-    q = {
-        "query": {
-            "bool": {
-                "must": {
-                    "range": {
-                        "submittedDate_tdate": {
-                            "gte": gte,
-                            "lte": lte
+
+    create = False
+
+    if create:
+        q = {
+            "query": {
+                "bool": {
+                    "must": {
+                        "range": {
+                            "submittedDate_tdate": {
+                                "gte": gte,
+                                "lte": lte
+                            }
                         }
-                    }
-                },
-                "must_not": {
-                    "exists": {
-                        "field": "times_viewed"
+                    },
+                    "must_not": {
+                        "exists": {
+                            "field": "times_viewed"
+                        }
                     }
                 }
             }
         }
-    }
+    else:
+        q = {
+            "query": {
+                "range": {
+                    "submittedDate_tdate": {
+                        "gte": gte,
+                        "lte": lte
+                    }
+                }
+            }
+        }
 
     count = es.count(index="hal2", body=q)["count"]
     if count == 0:
@@ -76,21 +99,26 @@ def update_notices(gte, lte):
         print("Thread (start) : Processing {} notices".format(count))
         # preserve_order=True
         res_scope = scan(es, index="hal2", query=q, scroll="60m", clear_scroll=True)
-        for doc in res_scope:
-            notice = doc["_source"]
-            update_specific_notice(notice)
+        # "no search context found for id..."
+        try:
+            for doc in res_scope:
+                notice = doc["_source"]
+                update_specific_notice(notice)
+
+        except Exception as e:
+            print("Update (error) : {}".format(e))
 
         print("Thread (end) : Processed {} notices".format(count))
 
 
 # min_submitted_year = 2006
 # max_submitted_year = 2006
-min_submitted_year = 2005
-max_submitted_year = 2021
+min_submitted_year = 2022
+max_submitted_year = 2022
 
 print(time.strftime("%H:%M:%S", time.localtime()) + ": Scraping started")
 
-step = 16
+step = 1
 for year in range(min_submitted_year, max_submitted_year + 1):
     for month in range(1, 13):
         for day in range(1, calendar.monthrange(year, month)[1] + 1, step):

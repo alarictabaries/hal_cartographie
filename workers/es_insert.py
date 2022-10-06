@@ -14,8 +14,8 @@ from libs import qd
 
 es = Elasticsearch(hosts="http://elastic:" + os.environ.get('ES_PASSWORD') + "@localhost:9200/")
 
-flags = 'docid,halId_s,authIdHal_s,doiId_s,openAccess_bool,authIdHal_s,submittedDate_tdate,modifiedDate_tdate' \
-        'fileMain_s,title_s,*_abstract_s,*_keyword_s,fulltext_t,domain_s,primaryDomain_s,docType_s,labStructIdName_fs,' \
+flags = 'docid,halId_s,authIdHal_s,doiId_s,openAccess_bool,authIdHal_s,submittedDate_tdate,publicationDateY_i,modifiedDate_tdate,' \
+        'title_s,*_abstract_s,*_keyword_s,fulltext_t,domain_s,primaryDomain_s,docType_s,labStructIdName_fs,' \
         'conferenceEndDate_tdate,conferenceStartDate_tdate,defenseDate_tdate,ePublicationDate_tdate,' \
         'producedDate_tdate,publicationDate_tdate,releasedDate_tdate,writingDate_tdate,instStructIdName_fs,' \
         'submittedDateY_i,submittedDateM_i,modifiedDateY_i,contributorId_i,contributorFullName_s,contributorFullNameId_fs,authFullName_s,structAddress_s,' \
@@ -31,8 +31,8 @@ rows = 10000
 # lte = 2020
 # to-do : >"2017-07-01T00:00:00Z"
 
-gte = "2022-01-01T00:00:00Z"
-lte = "2022-07-01T00:00:00Z"
+gte = "2022-09-01T00:00:00Z"
+lte = "2022-10-01T00:00:00Z"
 
 
 while increment < count:
@@ -293,7 +293,7 @@ while increment < count:
                             del notice_short[key]
                     """
 
-                    res = es.index(index="hal", id=notice["docid"], document=notice_short)
+                    res = es.index(index="hal2", id=notice["docid"], document=notice_short)
                     if res["_shards"]["successful"] == 0:
                         print("Error indexing")
                         print(notice_short)
