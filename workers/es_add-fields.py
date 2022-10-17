@@ -14,7 +14,7 @@ from libs import qd
 
 es = Elasticsearch(hosts="http://elastic:" + os.environ.get('ES_PASSWORD') + "@localhost:9200/")
 
-flags = 'docid,halId_s,publicationDateY_i,modifiedDate_tdate'
+flags = 'docid,*_title_s,*_abstract_s,*_keyword_s'
 
 increment = 0
 count = 1
@@ -25,8 +25,8 @@ rows = 10000
 # lte = 2020
 # to-do : >"2017-07-01T00:00:00Z"
 
-gte = "2022-01-01T00:00:00Z"
-lte = "2023-01-01T00:00:00Z"
+gte = "2022-09-01T00:00:00Z"
+lte = "2022-10-01T00:00:00Z"
 
 
 while increment < count:
@@ -58,13 +58,26 @@ while increment < count:
 
                 for notice in data['docs']:
 
-                    if "modifiedDate_tdate" not in notice:
-                        notice["modifiedDate_tdate"] = None
-                    if "publicationDateY_i" not in notice:
-                        notice["publicationDateY_i"] = None
+                    if 'fr_title_s' not in notice:
+                        notice['fr_title_s'] = None
+                    if 'fr_abstract_s' not in notice:
+                        notice['fr_abstract_s'] = None
+
+                    if 'en_title_s' not in notice:
+                        notice['en_title_s'] = None
+                    if 'abstract_s' not in notice:
+                        notice['en_abstract_s'] = None
+
+                    if 'fr_keyword_s' not in notice:
+                        notice['fr_keyword_s'] = None
+                    if 'en_keyword_s' not in notice:
+                        notice['en_keyword_s'] = None
+
 
                     try:
-                        res = es.update(index="hal2", id=notice["docid"], body={"doc": {"modifiedDate_tdate": notice["modifiedDate_tdate"], "publicationDateY_i": notice["publicationDateY_i"]}})
+                        res = es.update(index="hal-test", id=notice["docid"], body={"doc": {"fr_title_s": notice["fr_title_s"], "fr_abstract_s": notice["fr_abstract_s"],
+                                                                                            "en_title_s": notice["en_title_s"], "en_abstract_s": notice["en_abstract_s"],
+                                                                                            "fr_keyword_s": notice["fr_keyword_s"], "en_keyword_s": notice["en_keyword_s"]}})
                     except:
                         print(notice)
 

@@ -53,10 +53,11 @@ def update_specific_notice(notice):
         "doc": {"times_cited": notice["times_cited"], "field_citation_ratio": notice["field_citation_ratio"],
                 "times_viewed": notice["times_viewed"], "times_downloaded": notice["times_downloaded"],
                 "harvested_on": datetime.now().isoformat()}})
+
     return True
 
 
-def update_notices(gte, lte):
+def update_notices(gte, lte, update_gte, update_lte):
 
     create = False
 
@@ -83,11 +84,26 @@ def update_notices(gte, lte):
     else:
         q = {
             "query": {
-                "range": {
-                    "submittedDate_tdate": {
-                        "gte": gte,
-                        "lte": lte
-                    }
+
+                "bool": {
+                    "must": [
+                        {
+                            "range": {
+                                "submittedDate_tdate": {
+                                    "gte": gte,
+                                    "lte": lte
+                                }
+                            }
+                        },
+                        {
+                            "range": {
+                                "harvested_on": {
+                                    "gte": update_gte,
+                                    "lt": update_lt
+                                }
+                            }
+                        }
+                    ]
                 }
             }
         }
@@ -111,14 +127,15 @@ def update_notices(gte, lte):
         print("Thread (end) : Processed {} notices".format(count))
 
 
-# min_submitted_year = 2006
-# max_submitted_year = 2006
 min_submitted_year = 2022
-max_submitted_year = 2022
+max_submitted_year = 2023
+
+update_gte = "2022-01-01T00:00:00Z"
+update_lt = "2022-10-01T00:00:00Z"
 
 print(time.strftime("%H:%M:%S", time.localtime()) + ": Scraping started")
 
-step = 1
+step = 5
 for year in range(min_submitted_year, max_submitted_year + 1):
     for month in range(1, 13):
         for day in range(1, calendar.monthrange(year, month)[1] + 1, step):
@@ -129,6 +146,6 @@ for year in range(min_submitted_year, max_submitted_year + 1):
             if upper_limit_day != 0:
                 gte = str(year) + "-" + str(month).zfill(2) + "-" + str(day).zfill(2)
                 lte = str(year) + "-" + str(month).zfill(2) + "-" + str(upper_limit_day).zfill(2)
-                t = threading.Thread(target=update_notices, args=(gte, lte,))
+                t = threading.Thread(target=update_notices, args=(gte, lte, update_gte, update_lt, ))
                 t.start()
 

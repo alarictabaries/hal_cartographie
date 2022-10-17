@@ -18,25 +18,19 @@ from names_dataset import NameDataset
 nd = NameDataset()
 es = Elasticsearch(hosts="http://elastic:" + os.environ.get('ES_PASSWORD') + "@localhost:9200/")
 
-flags = 'docid,halId_s,authIdHal_s,doiId_s,openAccess_bool,authIdHal_s,submittedDate_tdate,publicationDateY_i,modifiedDate_tdate,' \
-        'title_s,*_abstract_s,*_keyword_s,fulltext_t,domain_s,primaryDomain_s,docType_s,labStructIdName_fs,' \
-        'conferenceEndDate_tdate,conferenceStartDate_tdate,defenseDate_tdate,ePublicationDate_tdate,' \
-        'producedDate_tdate,publicationDate_tdate,releasedDate_tdate,writingDate_tdate,instStructIdName_fs,' \
-        'submittedDateY_i,submittedDateM_i,modifiedDateY_i,contributorId_i,contributorFullName_s,contributorFullNameId_fs,authFullName_s,structAddress_s,' \
-        'authIdHasStructure_fs,structCode_s,structIdName_fs,structHasAlphaAuthId_fs,fileMain_s,' \
-        'journalSherpaPrePrint_s,journalSherpaPostPrint_s,journalSherpaPostRest_s,journalSherpaPreRest_s,selfArchiving_bool,uri_s'
+flags = '*'
 
 increment = 0
 count = 1
-rows = 10000
+rows = 2000
 
 
 # gte = 2019
 # lte = 2020
 # to-do : >"2017-07-01T00:00:00Z"
 
-gte = "2022-09-01T00:00:00Z"
-lte = "2022-10-01T00:00:00Z"
+gte = "2006-01-01T00:00:00Z"
+lt = "20010-01-01T00:00:00Z"
 
 def is_name(name):
     names_banlist = ["project", "migration", "imt", "service", "institutional", "repository", "bibliotheque", "archive",
@@ -74,7 +68,7 @@ while increment < count:
     while not res_status_ok:
 
         req = requests.get('https://api.archives-ouvertes.fr/search/?q=*&fl=' + flags + '&start=' + str(
-            increment) + "&rows=" + str(rows) + "&fq=submittedDate_tdate:[" + str(gte) + " TO " + str(lte) +  "}&sort=docid%20asc")
+            increment) + "&rows=" + str(rows) + "&fq=submittedDate_tdate:[" + str(gte) + " TO " + str(lt) +  "}&sort=docid%20asc")
 
         if req.status_code == 200:
             data = req.json()
@@ -95,7 +89,6 @@ while increment < count:
                 for notice in data['docs']:
 
                     if "modifiedDateY_i" not in notice:
-                        # notice["modifiedDateY_i"] = notice["submittedDateY_i"]
                         notice["modifiedDateY_i"] = None
 
                     # author treatment
@@ -107,19 +100,19 @@ while increment < count:
                         if "authFullName_s" in notice:
                             for name in notice["authFullName_s"]:
                                 if fold(name.lower()) in fold(notice["contributorFullName_s"].lower()):
-                                    notice["contributor_type"] = "self"
+                                    notice["contributor"] = "self"
                                     hal_error = True
                         if hal_error is False:
-                                notice["contributor_type"] = "other_FacetSep_" + str(notice["contributorFullNameId_fs"])
+                                notice["contributor"] = "other_FacetSep_" + str(notice["contributorFullNameId_fs"])
 
                                 # process contributor name (or alias)
-                                notice["contributor_type_processed"] = None
-                                name = notice["contributor_type"].split("_FacetSep_")[1]
+                                notice["contributor_type"] = None
+                                name = notice["contributor"].split("_FacetSep_")[1]
                                 contributor_type_processed = is_name(name)
                                 if contributor_type_processed is True:
-                                    notice["contributor_type_processed"] = "intermediate"
+                                    notice["contributor_type"] = "intermediate"
                                 else:
-                                    notice["contributor_type_processed"] = "automated"
+                                    notice["contributor_type"] = "automated"
 
                     # QD
                     notice["qd"] = round(qd.calculate(notice), 4)
@@ -218,41 +211,6 @@ while increment < count:
                     else:
                         notice["has_abstract"] = False
 
-                    """
-                    # get metrics
-                    hal_metrics = hal.get_metrics(notice["halId_s"])
-                    if "times_viewed" in hal_metrics:
-                        notice["times_viewed"] = hal_metrics["times_viewed"]
-                    if "times_downloaded" in hal_metrics:
-                        notice["times_downloaded"] = hal_metrics["times_downloaded"]
-    
-                    if "doiId_s" in notice:
-                        dimensions_metrics = dimensions.get_metrics(notice["doiId_s"])
-                        if "times_cited" in dimensions_metrics:
-                            notice["times_cited"] = dimensions_metrics["times_cited"]
-                        if "field_citation_ratio" in dimensions_metrics:
-                            notice["field_citation_ratio"] = dimensions_metrics["field_citation_ratio"]
-                    """
-
-                    # filters
-                    if "domain_s" not in notice:
-                        notice["domain_s"] = None
-                    if "instStructIdName_fs" not in notice:
-                        notice["instStructIdName_fs"] = None
-                    """
-                    if "times_viewed" not in notice:
-                        notice["times_viewed"] = None
-                    if "times_downloaded" not in notice:
-                        notice["times_downloaded"] = None
-                    if "times_cited" not in notice:
-                        notice["times_cited"] = None
-                    if "field_citation_ratio" not in notice:
-                        notice["field_citation_ratio"] = None
-                    """
-                    if 'doiId_s' not in notice:
-                        notice["doiId_s"] = None
-                    if "publicationDateY_i" not in notice:
-                        notice["publicationDateY_i"] = None
                     if "modifiedDate_tdate" not in notice:
                         notice["modifiedDate_tdate"] = None
                     else:
@@ -261,83 +219,11 @@ while increment < count:
                         notice["submittedDate_tdate"] = None
                     else:
                         notice["submittedDate_tdate"] = datetime.fromisoformat(notice["submittedDate_tdate"][:-1])
-                    if "labStructIdName_fs" not in notice:
-                        notice["labStructIdName_fs"] = None
-                    if "authIdHal_s" not in notice:
-                        notice["authIdHal_s"] = None
 
-                    # formatter
-                    notice["inst_name"] = []
-                    notice["lab_name"] = []
-
-                    if notice["instStructIdName_fs"] is not None:
-                        for inst in notice["instStructIdName_fs"]:
-                            notice["inst_name"].append(inst.split("_FacetSep_")[1])
-                    else:
-                        notice["inst_name"] = None
-                    if notice["labStructIdName_fs"] is not None:
-                        for lab in notice["labStructIdName_fs"]:
-                            notice["lab_name"].append(lab.split("_FacetSep_")[1])
-                    else:
-                        notice["lab_name"] = None
-
-                    notice_short = {
-                        "docid": notice["docid"],
-
-                        "halId_s": notice["halId_s"],
-                        "docType_s": notice["docType_s"],
-                        "uri_s": notice["uri_s"],
-
-                        "authIdHal_s": notice["authIdHal_s"],
-
-                        "instStructIdName_fs": notice["instStructIdName_fs"],
-                        "labStructIdName_fs": notice["labStructIdName_fs"],
-
-                        "inst_name": notice["inst_name"],
-                        "lab_name": notice["lab_name"],
-
-                        "authIdHal_s": notice["authIdHal_s"],
-
-                        "submittedDate_tdate": notice["submittedDate_tdate"],
-                        "modifiedDate_tdate": notice["modifiedDate_tdate"],
-
-                        "publicationDateY_i": notice["publicationDateY_i"],
-                        "submittedDateY_i": notice["submittedDateY_i"],
-                        "submittedDateM_i": notice["submittedDateM_i"],
-                        "modifiedDateY_i": notice["modifiedDateY_i"],
-
-                        "qd": notice["qd"],
-
-                        "preprint_embargo": notice["preprint_embargo"],
-                        "postprint_embargo": notice["postprint_embargo"],
-
-                        "contributor_type": notice["contributor_type"],
-                        "contributor_type_processed": notice["contributor_type_processed"],
-
-                        "domain_s": notice["domain_s"],
-                        "primaryDomain_s": notice["primaryDomain_s"],
-
-                        "doiId_s": notice["doiId_s"],
-
-                        "openAccess_bool": notice["openAccess_bool"],
-
-                        "has_file": notice["has_file"],
-                        "has_abstract": notice["has_abstract"],
-                        "has_keywords": notice["has_keywords"],
-
-                        "harvested_on": datetime.now()
-                    }
-
-                    """
-                    for key in notice_short.copy():
-                        if notice_short[key] == "NULL":
-                            del notice_short[key]
-                    """
-
-                    res = es.index(index="hal2", id=notice["docid"], document=notice_short)
+                    res = es.index(index="half", id=notice["docid"], document=notice)
                     if res["_shards"]["successful"] == 0:
                         print("Error indexing")
-                        print(notice_short)
+                        print(notice)
                         print("\n")
 
     increment += rows
