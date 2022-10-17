@@ -62,11 +62,6 @@ for r in qd_ranges:
         row.append(key['doc_count'])
     table.append(row)
 
-print(np.corrcoef(table[0], table[1]))
-corr, _ = pearsonr(table[0], table[1])
-print('Pearsons correlation: %.3f' % corr)
-
-
 stat, p, dof, expected = chi2_contingency(table)
 print('dof=%d' % dof)
 print(expected)

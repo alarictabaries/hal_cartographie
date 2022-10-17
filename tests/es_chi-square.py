@@ -55,8 +55,9 @@ def get_aggs(qd):
     return res
 
 
-qd_ranges = [[0.5, 0.75], [0.75, 1]]
+qd_ranges = [[0, 0.25], [0.25, 0.5], [0.5, 0.75], [0.75, 1]]
 # qd_ranges = [[0, 0.2], [0.2, 0.4], [0.4, 0.6], [0.6, 0.8], [0.8, 1]]
+qd_ranges = [[0, 0.15], [0.15, 0.3], [0.3, 0.45], [0.45, 0.6], [0.6, 0.75], [0.75, 0.9]]
 table = []
 
 for r in qd_ranges:
@@ -78,14 +79,3 @@ if p <= alpha:
     print('Dependent (reject H0)')
 else:
     print('Independent (H0 holds true)')
-
-table = np.array(table)
-
-X2 = chi2_contingency(table, correction=False)[0]
-N = np.sum(table)
-minimum_dimension = min(table.shape) - 1
-
-# Calculate Cramer's V
-result = np.sqrt((X2 / N) / minimum_dimension)
-print(result)
-

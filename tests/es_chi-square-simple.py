@@ -6,12 +6,14 @@ from scipy.stats import chi2_contingency
 from scipy.stats import chi2
 from scipy.stats.contingency import association
 from scipy.stats import pearsonr
+from scipy.stats import spearmanr
+from scipy.stats import fisher_exact
 
 
 es = Elasticsearch(hosts="http://elastic:" + os.environ.get('ES_PASSWORD') + "@localhost:9200/")
 
 
-field = "times_downloaded"
+field = "times_viewed"
 
 def get_aggs(param):
     aggs_query = {
@@ -59,8 +61,22 @@ for r in qd_ranges:
     table.append(row)
 
 print(np.corrcoef(table[0], table[1]))
-corr, _ = pearsonr(table[0], table[1])
+corr, p = pearsonr(table[0], table[1])
 print('Pearsons correlation: %.3f' % corr)
+alpha = 0.05
+if p > alpha:
+	print('Samples are uncorrelated (fail to reject H0) p=%.3f' % p)
+else:
+	print('Samples are correlated (reject H0) p=%.3f' % p)
+
+print(np.corrcoef(table[0], table[1]))
+corr, p = spearmanr(table[0], table[1])
+print('Spearmans correlation: %.3f' % corr)
+alpha = 0.05
+if p > alpha:
+	print('Samples are uncorrelated (fail to reject H0) p=%.3f' % p)
+else:
+	print('Samples are correlated (reject H0) p=%.3f' % p)
 
 
 stat, p, dof, expected = chi2_contingency(table)
