@@ -3,6 +3,12 @@ from elasticsearch import Elasticsearch
 from scipy.stats import chisquare
 import numpy as np
 from scipy.stats import chi2_contingency
+from scipy.stats import chi2
+from scipy.stats.contingency import association
+from scipy.stats import pearsonr
+from scipy.stats import spearmanr
+from scipy.stats import fisher_exact
+
 
 
 es = Elasticsearch(hosts="http://elastic:" + os.environ.get('ES_PASSWORD') + "@localhost:9200/")
@@ -58,6 +64,9 @@ def get_aggs(qd):
 qd_ranges = [[0, 0.25], [0.25, 0.5], [0.5, 0.75], [0.75, 1]]
 # qd_ranges = [[0, 0.2], [0.2, 0.4], [0.4, 0.6], [0.6, 0.8], [0.8, 1]]
 qd_ranges = [[0, 0.15], [0.15, 0.3], [0.3, 0.45], [0.45, 0.6], [0.6, 0.75], [0.75, 0.9]]
+qd_ranges = [[0, 0.15], [0.15, 0.3], [0.3, 0.45], [0.45, 0.6], [0.6, 0.75], [0.75, 0.9]]
+qd_ranges = [[0.3, 0.45], [0.45, 0.6], [0.6, 0.75], [0.75, 0.9]]
+
 table = []
 
 for r in qd_ranges:
@@ -68,14 +77,23 @@ for r in qd_ranges:
     table.append(row)
 
 
-obs = np.array(table)
-print(obs)
-
 stat, p, dof, expected = chi2_contingency(table)
+print('dof=%d' % dof)
+print(expected)
+# interpret test-statistic
+prob = 0.95
+critical = chi2.ppf(prob, dof)
+print('probability=%.3f, critical=%.3f, stat=%.3f' % (prob, critical, stat))
+if abs(stat) >= critical:
+    print('Dependent (reject H0)')
+else:
+    print('Independent (fail to reject H0)')
 # interpret p-value
-alpha = 0.05
-print("p value is " + str(p))
+alpha = 1.0 - prob
+print('significance=%.3f, p=%.3f' % (alpha, p))
 if p <= alpha:
     print('Dependent (reject H0)')
 else:
-    print('Independent (H0 holds true)')
+    print('Independent (fail to reject H0)')
+
+print(association(table, method="cramer"))

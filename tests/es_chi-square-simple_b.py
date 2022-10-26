@@ -11,7 +11,7 @@ from scipy.stats import pearsonr
 es = Elasticsearch(hosts="http://elastic:" + os.environ.get('ES_PASSWORD') + "@localhost:9200/")
 
 
-field = "times_viewed"
+field = "times_downloaded"
 
 def get_aggs(param):
     aggs_query = {
@@ -55,12 +55,18 @@ qd_ranges = ["must", "must_not"]
 # qd_ranges = [[0, 0.2], [0.2, 0.4], [0.4, 0.6], [0.6, 0.8], [0.8, 1]]
 table = []
 
+sum = 0
+
 for r in qd_ranges:
     res = get_aggs(r)
     row = []
     for key in res:
         row.append(key['doc_count'])
+        sum += key['doc_count']
     table.append(row)
+
+print(sum)
+
 
 stat, p, dof, expected = chi2_contingency(table)
 print('dof=%d' % dof)

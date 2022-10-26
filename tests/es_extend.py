@@ -79,14 +79,18 @@ def lolvelty(es, index, doc_id, fields,
 
 es = Elasticsearch(hosts="http://elastic:" + os.environ.get('ES_PASSWORD') + "@localhost:9200/")
 
-search_request = "nanoparticule"
+search_request = "chimie click"
 req = requests.get('https://api.archives-ouvertes.fr/search/?q=fulltext_t:' + search_request + '*&fl=docid,title_s')
+
+search_request = "kouamvi-couao-zotti"
+req = requests.get('https://api.archives-ouvertes.fr/search/?q=authIdHal_s:' + search_request + '&fl=docid,title_s')
 
 results = []
 
 if req.status_code == 200:
+    print(req)
     data = req.json()
-    for notice in data["response"]['docs'][0:10]:
+    for notice in data["response"]['docs']:
         print(notice["title_s"])
         results.append({"_id": notice['docid'], "_index": "hal-test"})
 
@@ -102,9 +106,10 @@ mlt_query = {"query":
 
 r = es.search(index="hal-test", body=mlt_query)
 for hit in r['hits']['hits']:
-    print(hit['_source']['fr_title_s'])
+    print(hit['_source']['fr_title_s'], end=" - ")
+    print("https://hal.archives-ouvertes.fr/" + hit['_source']['halId_s'])
 
-keyword = "nanoparticles"
+keyword = "hemostatic"
 
 kw_query = {"query": {"match": {"en_keyword_s": keyword}},
             "size": 0,
@@ -115,7 +120,7 @@ kw_query = {"query": {"match": {"en_keyword_s": keyword}},
                         "keywords": {
                             "significant_text": {
                                 "size": 10,
-                                "field": "en_keyword_s",
+                                "field": "fr_keyword_s",
                                 "gnd": {}
                             }
                         }
