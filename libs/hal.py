@@ -68,6 +68,8 @@ def get_metrics(uri_s):
                         uri_s = "https://hal.archives-ouvertes.fr/" + uri_s.split("/")[-1]
                         if res_retries > 1:
                             uri_s = "https://hal.archives-ouvertes.fr/view/resolver?identifiant=" + uri_s.split("/")[-1]
+                    elif "Le document n'a pas été trouvé"  in soup.find_all(class_='jumbotron')[0].text:
+                        return -1
                     elif "Le document n'est pas indexé" in soup.find_all(class_='jumbotron')[0].text:
                         res_retries = 4
                     else:

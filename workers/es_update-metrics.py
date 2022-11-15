@@ -20,6 +20,10 @@ def update_specific_notice(notice):
     # get HAL metrics
     hal_metrics = hal.get_metrics(notice["uri_s"])
 
+    # if document is deleted...
+    if hal_metrics == -1:
+        es.update(index="hal2", id=notice["docid"], body={"doc": {"deleted": True}})
+
     if "deleted_notice" in hal_metrics:
         # overkill security
         if hal_metrics["deleted_notice"]:
@@ -135,7 +139,7 @@ update_lt = "2022-10-01T00:00:00Z"
 
 print(time.strftime("%H:%M:%S", time.localtime()) + ": Scraping started")
 
-step = 5
+step = 1
 for year in range(min_submitted_year, max_submitted_year + 1):
     for month in range(1, 13):
         for day in range(1, calendar.monthrange(year, month)[1] + 1, step):

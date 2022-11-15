@@ -5,6 +5,7 @@ import os
 import dateutil.parser
 from dateutil.relativedelta import relativedelta
 from fold_to_ascii import fold
+from dateutil import parser
 
 import requests
 from nested_lookup import nested_lookup
@@ -35,8 +36,8 @@ rows = 10000
 # lte = 2020
 # to-do : >"2017-07-01T00:00:00Z"
 
-gte = "2022-09-01T00:00:00Z"
-lte = "2022-10-01T00:00:00Z"
+gte = "2022-10-01T00:00:00Z"
+lte = "2022-11-01T00:00:00Z"
 
 def is_name(name):
     names_banlist = ["project", "migration", "imt", "service", "institutional", "repository", "bibliotheque", "archive",
@@ -218,6 +219,23 @@ while increment < count:
                     else:
                         notice["has_abstract"] = False
 
+                    # deposit logic
+                    if notice["publicationDate_tdate"] is True:
+                        deposit_delta = parser.parse(notice["submittedDate_tdate"]) - parser.parse(
+                            notice["publicationDate_tdate"])
+                        if notice["has_file"] or notice["openAccess_bool"]:
+                            # more than 1y
+                            if deposit_delta.seconds > 31536000:
+                                notice["deposit_logic"] = "archiving"
+                            elif deposit_delta.seconds <= 31536000:
+                                notice["deposit_logic"] = "communicating"
+                        else:
+                            # more than 1y
+                            if deposit_delta.seconds > 31536000:
+                                notice["deposit_logic"] = "censusing"
+                            elif deposit_delta.seconds <= 31536000:
+                                notice["deposit_logic"] = "referencing"
+
                     """
                     # get metrics
                     hal_metrics = hal.get_metrics(notice["halId_s"])
@@ -249,6 +267,8 @@ while increment < count:
                     if "field_citation_ratio" not in notice:
                         notice["field_citation_ratio"] = None
                     """
+                    if 'deposit_logic' not in notice:
+                        notice["deposit_logic"] = None
                     if 'doiId_s' not in notice:
                         notice["doiId_s"] = None
                     if "publicationDateY_i" not in notice:
@@ -307,6 +327,8 @@ while increment < count:
                         "modifiedDateY_i": notice["modifiedDateY_i"],
 
                         "qd": notice["qd"],
+
+                        "deposit_logic": notice["deposit_logic"],
 
                         "preprint_embargo": notice["preprint_embargo"],
                         "postprint_embargo": notice["postprint_embargo"],

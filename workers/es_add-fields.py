@@ -10,11 +10,14 @@ import requests
 from nested_lookup import nested_lookup
 from elasticsearch import Elasticsearch
 
+from dateutil import parser
+
+
 from libs import qd
 
 es = Elasticsearch(hosts="http://elastic:" + os.environ.get('ES_PASSWORD') + "@localhost:9200/")
 
-flags = 'docid,*_title_s,*_abstract_s,*_keyword_s'
+flags = 'docid,publicationDate_tdate,submittedDate_tdate,fileMain_s,openAccess_bool'
 
 increment = 0
 count = 1
@@ -25,8 +28,8 @@ rows = 10000
 # lte = 2020
 # to-do : >"2017-07-01T00:00:00Z"
 
-gte = "2022-09-01T00:00:00Z"
-lte = "2022-10-01T00:00:00Z"
+gte = "2007-01-01T00:00:00Z"
+lte = "2010-01-01T00:00:00Z"
 
 
 while increment < count:
@@ -58,26 +61,36 @@ while increment < count:
 
                 for notice in data['docs']:
 
-                    if 'fr_title_s' not in notice:
-                        notice['fr_title_s'] = None
-                    if 'fr_abstract_s' not in notice:
-                        notice['fr_abstract_s'] = None
+                    if 'publicationDate_tdate' not in notice:
+                        notice['publicationDate_tdate'] = None
 
-                    if 'en_title_s' not in notice:
-                        notice['en_title_s'] = None
-                    if 'abstract_s' not in notice:
-                        notice['en_abstract_s'] = None
+                    if notice['publicationDate_tdate']:
 
-                    if 'fr_keyword_s' not in notice:
-                        notice['fr_keyword_s'] = None
-                    if 'en_keyword_s' not in notice:
-                        notice['en_keyword_s'] = None
+                        notice["has_file"] = False
+                        if "fileMain_s" in notice:
+                            notice["has_file"] = True
+
+                        deposit_delta = parser.parse(notice["submittedDate_tdate"]) - parser.parse(notice["publicationDate_tdate"])
+                        if notice["has_file"] or notice["openAccess_bool"]:
+                            # more than 1y
+                            if deposit_delta.seconds > 31536000:
+                                notice["deposit_logic"] = "archiving"
+                            elif deposit_delta.seconds <= 31536000:
+                                notice["deposit_logic"] = "communicating"
+                        else:
+                            # more than 1y
+                            if deposit_delta.seconds > 31536000:
+                                notice["deposit_logic"] = "censusing"
+                            elif deposit_delta.seconds <= 31536000:
+                                notice["deposit_logic"] = "referencing"
+
+
+                    if 'deposit_logic' not in notice:
+                        notice['deposit_logic'] = None
 
 
                     try:
-                        res = es.update(index="hal-test", id=notice["docid"], body={"doc": {"fr_title_s": notice["fr_title_s"], "fr_abstract_s": notice["fr_abstract_s"],
-                                                                                            "en_title_s": notice["en_title_s"], "en_abstract_s": notice["en_abstract_s"],
-                                                                                            "fr_keyword_s": notice["fr_keyword_s"], "en_keyword_s": notice["en_keyword_s"]}})
+                        res = es.update(index="hal2", id=notice["docid"], body={"doc": {"publicationDate_tdate": notice["publicationDate_tdate"], "deposit_logic": notice["deposit_logic"]}})
                     except:
                         print(notice)
 
