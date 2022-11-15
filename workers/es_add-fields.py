@@ -28,7 +28,7 @@ rows = 10000
 # lte = 2020
 # to-do : >"2017-07-01T00:00:00Z"
 
-gte = "2007-01-01T00:00:00Z"
+gte = "2002-01-01T00:00:00Z"
 lte = "2010-01-01T00:00:00Z"
 
 
@@ -73,15 +73,15 @@ while increment < count:
                         deposit_delta = parser.parse(notice["submittedDate_tdate"]) - parser.parse(notice["publicationDate_tdate"])
                         if notice["has_file"] or notice["openAccess_bool"]:
                             # more than 1y
-                            if deposit_delta.seconds > 31536000:
+                            if deposit_delta.total_seconds() > 31536000:
                                 notice["deposit_logic"] = "archiving"
-                            elif deposit_delta.seconds <= 31536000:
+                            elif deposit_delta.total_seconds() <= 31536000:
                                 notice["deposit_logic"] = "communicating"
                         else:
                             # more than 1y
-                            if deposit_delta.seconds > 31536000:
+                            if deposit_delta.total_seconds() > 31536000:
                                 notice["deposit_logic"] = "censusing"
-                            elif deposit_delta.seconds <= 31536000:
+                            elif deposit_delta.total_seconds() <= 31536000:
                                 notice["deposit_logic"] = "referencing"
 
 

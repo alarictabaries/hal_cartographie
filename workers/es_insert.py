@@ -221,19 +221,18 @@ while increment < count:
 
                     # deposit logic
                     if notice["publicationDate_tdate"] is True:
-                        deposit_delta = parser.parse(notice["submittedDate_tdate"]) - parser.parse(
-                            notice["publicationDate_tdate"])
+                        deposit_delta = parser.parse(notice["submittedDate_tdate"]) - parser.parse(notice["publicationDate_tdate"])
                         if notice["has_file"] or notice["openAccess_bool"]:
                             # more than 1y
-                            if deposit_delta.seconds > 31536000:
+                            if deposit_delta.total_seconds() > 31536000:
                                 notice["deposit_logic"] = "archiving"
-                            elif deposit_delta.seconds <= 31536000:
+                            elif deposit_delta.total_seconds() <= 31536000:
                                 notice["deposit_logic"] = "communicating"
                         else:
                             # more than 1y
-                            if deposit_delta.seconds > 31536000:
+                            if deposit_delta.total_seconds() > 31536000:
                                 notice["deposit_logic"] = "censusing"
-                            elif deposit_delta.seconds <= 31536000:
+                            elif deposit_delta.total_seconds() <= 31536000:
                                 notice["deposit_logic"] = "referencing"
 
                     """
