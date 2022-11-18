@@ -36,8 +36,8 @@ rows = 10000
 # lte = 2020
 # to-do : >"2017-07-01T00:00:00Z"
 
-gte = "2022-10-01T00:00:00Z"
-lte = "2022-11-01T00:00:00Z"
+gte = "2002-01-01T00:00:00Z"
+lte = "2007-01-01T00:00:00Z"
 
 def is_name(name):
     names_banlist = ["project", "migration", "imt", "service", "institutional", "repository", "bibliotheque", "archive",
@@ -77,6 +77,13 @@ while increment < count:
         req = requests.get('https://api.archives-ouvertes.fr/search/?q=*&fl=' + flags + '&start=' + str(
             increment) + "&rows=" + str(rows) + "&fq=submittedDate_tdate:[" + str(gte) + " TO " + str(lte) +  "}&sort=docid%20asc")
 
+        debug = False
+        if debug:
+            halId_s = "hal-00100058"
+            req = requests.get('https://api.archives-ouvertes.fr/search/?q=halId_s:' + halId_s  + '&fl=' + flags + '&start=' + str(
+                increment) + "&rows=" + str(rows) + "&fq=submittedDate_tdate:[" + str(gte) + " TO " + str(
+                lte) + "}&sort=docid%20asc")
+
         if req.status_code == 200:
             data = req.json()
 
@@ -109,6 +116,7 @@ while increment < count:
                             for name in notice["authFullName_s"]:
                                 if fold(name.lower()) in fold(notice["contributorFullName_s"].lower()):
                                     notice["contributor_type"] = "self"
+                                    notice["contributor_type_processed"] = "self"
                                     hal_error = True
                         if hal_error is False:
                                 notice["contributor_type"] = "other_FacetSep_" + str(notice["contributorFullNameId_fs"])
@@ -355,10 +363,22 @@ while increment < count:
                             del notice_short[key]
                     """
 
-                    res = es.index(index="hal2", id=notice["docid"], document=notice_short)
-                    if res["_shards"]["successful"] == 0:
-                        print("Error indexing")
-                        print(notice_short)
-                        print("\n")
+                    # if document exists, update it
+                    q = {
+                        "query": {
+                            "match": {
+                                      "docid": notice["docid"]
+                                  }
+                        }
+                    }
+                    count = es.count(index="hal2", body=q)["count"]
+                    if count > 0:
+                        es.update(index="hal2", id=notice["docid"], body={"doc": notice_short})
+                    else:
+                        res = es.index(index="hal2", id=notice["docid"], document=notice_short)
+                        if res["_shards"]["successful"] == 0:
+                            print("Error indexing")
+                            print(notice_short)
+                            print("\n")
 
     increment += rows

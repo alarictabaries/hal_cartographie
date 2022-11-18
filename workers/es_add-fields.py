@@ -12,7 +12,6 @@ from elasticsearch import Elasticsearch
 
 from dateutil import parser
 
-
 from libs import qd
 
 es = Elasticsearch(hosts="http://elastic:" + os.environ.get('ES_PASSWORD') + "@localhost:9200/")
@@ -23,26 +22,28 @@ increment = 0
 count = 1
 rows = 10000
 
-
 # gte = 2019
 # lte = 2020
 # to-do : >"2017-07-01T00:00:00Z"
 
-gte = "2002-01-01T00:00:00Z"
-lte = "2010-01-01T00:00:00Z"
+gte = "2022-06-01T00:00:00Z"
+lte = "2022-11-01T00:00:00Z"
 
+err_count = 0
 
 while increment < count:
 
     print(time.strftime("%H:%M:%S", time.localtime()), end=' : ')
     print(increment, end="/")
-    print(count)
+    print(count, end=" - ")
+    print(err_count)
 
     res_status_ok = False
     while not res_status_ok:
 
         req = requests.get('https://api.archives-ouvertes.fr/search/?q=&fl=' + flags + '&start=' + str(
-            increment) + "&rows=" + str(rows) + "&fq=submittedDate_tdate:[" + str(gte) + " TO " + str(lte) +  "}&sort=docid%20asc")
+            increment) + "&rows=" + str(rows) + "&fq=submittedDate_tdate:[" + str(gte) + " TO " + str(
+            lte) + "}&sort=docid%20asc")
 
         if req.status_code == 200:
             data = req.json()
@@ -50,6 +51,7 @@ while increment < count:
             if "error" in data.keys():
                 print("Error: ", end=":")
                 print(data["error"])
+
                 time.sleep(60)
 
             if "response" in data.keys():
@@ -70,7 +72,8 @@ while increment < count:
                         if "fileMain_s" in notice:
                             notice["has_file"] = True
 
-                        deposit_delta = parser.parse(notice["submittedDate_tdate"]) - parser.parse(notice["publicationDate_tdate"])
+                        deposit_delta = parser.parse(notice["submittedDate_tdate"]) - parser.parse(
+                            notice["publicationDate_tdate"])
                         if notice["has_file"] or notice["openAccess_bool"]:
                             # more than 1y
                             if deposit_delta.total_seconds() > 31536000:
@@ -84,15 +87,15 @@ while increment < count:
                             elif deposit_delta.total_seconds() <= 31536000:
                                 notice["deposit_logic"] = "referencing"
 
-
                     if 'deposit_logic' not in notice:
                         notice['deposit_logic'] = None
 
-
                     try:
-                        res = es.update(index="hal2", id=notice["docid"], body={"doc": {"publicationDate_tdate": notice["publicationDate_tdate"], "deposit_logic": notice["deposit_logic"]}})
+                        res = es.update(index="hal2", id=notice["docid"], body={
+                            "doc": {"publicationDate_tdate": notice["publicationDate_tdate"],
+                                    "deposit_logic": notice["deposit_logic"]}})
                     except:
+                        err_count += 1
                         print(notice)
-
 
     increment += rows
