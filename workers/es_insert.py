@@ -77,6 +77,9 @@ while increment < count:
         req = requests.get('https://api.archives-ouvertes.fr/search/?q=*&fl=' + flags + '&start=' + str(
             increment) + "&rows=" + str(rows) + "&fq=submittedDate_tdate:[" + str(gte) + " TO " + str(lte) +  "}&sort=docid%20asc")
 
+        print('https://api.archives-ouvertes.fr/search/?q=*&fl=' + flags + '&start=' + str(
+            increment) + "&rows=" + str(rows) + "&fq=submittedDate_tdate:[" + str(gte) + " TO " + str(lte) +  "}&sort=docid%20asc")
+
         debug = False
         if debug:
             halId_s = "hal-00100058"
@@ -280,6 +283,8 @@ while increment < count:
                         notice["doiId_s"] = None
                     if "publicationDateY_i" not in notice:
                         notice["publicationDateY_i"] = None
+                    if "publicationDate_tdate" not in notice:
+                        notice["publicationDate_tdate"] = None
                     if "modifiedDate_tdate" not in notice:
                         notice["modifiedDate_tdate"] = None
                     else:
@@ -327,6 +332,7 @@ while increment < count:
 
                         "submittedDate_tdate": notice["submittedDate_tdate"],
                         "modifiedDate_tdate": notice["modifiedDate_tdate"],
+                        "publicationDate_tdate": notice["publicationDate_tdate"],
 
                         "publicationDateY_i": notice["publicationDateY_i"],
                         "submittedDateY_i": notice["submittedDateY_i"],
@@ -354,7 +360,7 @@ while increment < count:
                         "has_abstract": notice["has_abstract"],
                         "has_keywords": notice["has_keywords"],
 
-                        "harvested_on": datetime.now()
+                        "2": datetime.now().replace(second=0, microsecond=0)
                     }
 
                     """
@@ -371,8 +377,8 @@ while increment < count:
                                   }
                         }
                     }
-                    count = es.count(index="hal2", body=q)["count"]
-                    if count > 0:
+                    upd_count = es.count(index="hal2", body=q)["count"]
+                    if upd_count > 0:
                         es.update(index="hal2", id=notice["docid"], body={"doc": notice_short})
                     else:
                         res = es.index(index="hal2", id=notice["docid"], document=notice_short)
@@ -380,5 +386,4 @@ while increment < count:
                             print("Error indexing")
                             print(notice_short)
                             print("\n")
-
     increment += rows
