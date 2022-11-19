@@ -36,8 +36,8 @@ rows = 10000
 # lte = 2020
 # to-do : >"2017-07-01T00:00:00Z"
 
-gte = "2002-01-01T00:00:00Z"
-lte = "2007-01-01T00:00:00Z"
+gte = "2010-01-01T00:00:00Z"
+lte = "2012-01-01T00:00:00Z"
 
 def is_name(name):
     names_banlist = ["project", "migration", "imt", "service", "institutional", "repository", "bibliotheque", "archive",
@@ -75,9 +75,6 @@ while increment < count:
     while not res_status_ok:
 
         req = requests.get('https://api.archives-ouvertes.fr/search/?q=*&fl=' + flags + '&start=' + str(
-            increment) + "&rows=" + str(rows) + "&fq=submittedDate_tdate:[" + str(gte) + " TO " + str(lte) +  "}&sort=docid%20asc")
-
-        print('https://api.archives-ouvertes.fr/search/?q=*&fl=' + flags + '&start=' + str(
             increment) + "&rows=" + str(rows) + "&fq=submittedDate_tdate:[" + str(gte) + " TO " + str(lte) +  "}&sort=docid%20asc")
 
         debug = False
@@ -231,7 +228,7 @@ while increment < count:
                         notice["has_abstract"] = False
 
                     # deposit logic
-                    if notice["publicationDate_tdate"] is True:
+                    if notice["publicationDate_tdate"]:
                         deposit_delta = parser.parse(notice["submittedDate_tdate"]) - parser.parse(notice["publicationDate_tdate"])
                         if notice["has_file"] or notice["openAccess_bool"]:
                             # more than 1y
@@ -360,7 +357,7 @@ while increment < count:
                         "has_abstract": notice["has_abstract"],
                         "has_keywords": notice["has_keywords"],
 
-                        "2": datetime.now().replace(second=0, microsecond=0)
+                        "harvested_on": datetime.now().replace(second=0, microsecond=0)
                     }
 
                     """
