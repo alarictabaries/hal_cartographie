@@ -23,12 +23,17 @@ def update_specific_notice(notice):
     # if document is deleted...
     if hal_metrics == -1:
         es.update(index="hal2", id=notice["docid"], body={"doc": {"deleted": True}})
+        print("Notice {} is marked as deleted".format(notice["halId_s"]))
+        # es.delete(index="hal2", id=notice["docid"])
+        return True
 
     if "deleted_notice" in hal_metrics:
         # overkill security
         if hal_metrics["deleted_notice"]:
-            notice["deleted_notice"] = True
+            # notice["deleted_notice"] = True
             es.update(index="hal2", id=notice["docid"], body={"doc": {"deleted": True}})
+            print("Notice {} is marked as deleted".format(notice["halId_s"]))
+            # es.delete(index="hal2", id=notice["docid"])
             return True
 
     if "times_viewed" in hal_metrics:
@@ -53,17 +58,33 @@ def update_specific_notice(notice):
     if "field_citation_ratio" not in notice:
         notice["field_citation_ratio"] = None
 
-    es.update(index="hal2", id=notice["docid"], body={
-        "doc": {"times_cited": notice["times_cited"], "field_citation_ratio": notice["field_citation_ratio"],
-                "times_viewed": notice["times_viewed"], "times_downloaded": notice["times_downloaded"],
-                "harvested_on": datetime.now().isoformat()}})
+    # counter update if hal "Max retries exceeded with"
+    if "times_viewed" in hal_metrics or "times_downloaded" in hal_metrics:
+        if notice["doiId_s"] is not None:
+            if "times_cited" in dimensions_metrics or "field_citation_ratio" in dimensions_metrics or 'error' in dimensions_metrics or notice["doiId_s"] is None:
+                es.update(index="hal2", id=notice["docid"], body={
+                    "doc": {"times_cited": notice["times_cited"],
+                            "field_citation_ratio": notice["field_citation_ratio"],
+                            "times_viewed": notice["times_viewed"], "times_downloaded": notice["times_downloaded"],
+                            "metrics_harvested_on": datetime.now().isoformat()}})
+        else:
+            es.update(index="hal2", id=notice["docid"], body={
+                "doc": {"times_cited": notice["times_cited"], "field_citation_ratio": notice["field_citation_ratio"],
+                        "times_viewed": notice["times_viewed"], "times_downloaded": notice["times_downloaded"],
+                        "metrics_harvested_on": datetime.now().isoformat()}})
+    else:
+        if notice["doiId_s"] is not None:
+            if "times_cited" in dimensions_metrics or "field_citation_ratio" in dimensions_metrics:
+                print("Could not update notice {} despite having Dimensions data".format(notice["halId_s"]))
+        else:
+            print("Could not update notice {}".format(notice["halId_s"]))
 
     return True
 
 
-def update_notices(gte, lte, update_gte, update_lte):
+def update_notices(gte, lte, update_lt):
 
-    create = False
+    create = True
 
     if create:
         q = {
@@ -79,7 +100,8 @@ def update_notices(gte, lte, update_gte, update_lte):
                     },
                     "must_not": {
                         "exists": {
-                            "field": "times_viewed"
+                            #"field": "times_viewed"
+                            "field": "metrics_harvested_on"
                         }
                     }
                 }
@@ -101,8 +123,7 @@ def update_notices(gte, lte, update_gte, update_lte):
                         },
                         {
                             "range": {
-                                "harvested_on": {
-                                    "gte": update_gte,
+                                "metrics_harvested_on": {
                                     "lt": update_lt
                                 }
                             }
@@ -131,25 +152,34 @@ def update_notices(gte, lte, update_gte, update_lte):
         print("Thread (end) : Processed {} notices".format(count))
 
 
-min_submitted_year = 2022
-max_submitted_year = 2023
+# scope...
+min_submitted_year = 2002
+max_submitted_year = 2010
 
-update_gte = "2022-01-01T00:00:00Z"
-update_lt = "2022-10-01T00:00:00Z"
+# harvested_on before....
+update_lt = "2022-11-21T17:18:02.000Z"
 
 print(time.strftime("%H:%M:%S", time.localtime()) + ": Scraping started")
 
-step = 1
+step = 15
 for year in range(min_submitted_year, max_submitted_year + 1):
     for month in range(1, 13):
-        for day in range(1, calendar.monthrange(year, month)[1] + 1, step):
-            if (day + step) > calendar.monthrange(year, month)[1]:
-                upper_limit_day = calendar.monthrange(year, month)[1] - day
-            else:
-                upper_limit_day = day + step
-            if upper_limit_day != 0:
-                gte = str(year) + "-" + str(month).zfill(2) + "-" + str(day).zfill(2)
-                lte = str(year) + "-" + str(month).zfill(2) + "-" + str(upper_limit_day).zfill(2)
-                t = threading.Thread(target=update_notices, args=(gte, lte, update_gte, update_lt, ))
-                t.start()
 
+        month_processing = True
+        if month_processing:
+            gte = str(year) + "-" + str(month).zfill(2) + "-01"
+            upper_limit_day = calendar.monthrange(year, month)[1]
+            lte = str(year) + "-" + str(month).zfill(2) + "-" + str(upper_limit_day).zfill(2)
+            t = threading.Thread(target=update_notices, args=(gte, lte, update_lt))
+            t.start()
+        else:
+            for day in range(1, calendar.monthrange(year, month)[1] + 1, step):
+                if (day + step) > calendar.monthrange(year, month)[1]:
+                    upper_limit_day = calendar.monthrange(year, month)[1] - day
+                else:
+                    upper_limit_day = day + step
+                if upper_limit_day != 0:
+                    gte = str(year) + "-" + str(month).zfill(2) + "-" + str(day).zfill(2)
+                    lte = str(year) + "-" + str(month).zfill(2) + "-" + str(upper_limit_day).zfill(2)
+                    t = threading.Thread(target=update_notices, args=(gte, lte, update_lt))
+                    t.start()

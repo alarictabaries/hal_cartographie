@@ -4,6 +4,9 @@ import requests
 def get_metrics(doiId_s):
     res = {}
     response = requests.request("GET", "https://metrics-api.dimensions.ai/doi/" + doiId_s)
+    if response.status_code == 404:
+        res["error"] = "404"
+        return res
     if response.status_code == 200:
         response = response.json()
         if "times_cited" in response:

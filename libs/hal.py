@@ -58,35 +58,42 @@ def get_metrics(uri_s):
                     if not notice.url.split("-")[-1].isdigit() or len(notice.url.split("-")[-1]) != 8:
                         uri_s = "https://hal.archives-ouvertes.fr/" + uri_s.split("/")[-1]
                     # URI with version number (ex: https://hal.archives-ouvertes.fr/ijn_02985466v2)
-                    elif all(s in soup.find_all(class_='jumbotron')[0].text for s in ["Le document n'a pas été trouvé.", "n'existe pas"]):
+                    elif all(s in soup.find_all(class_='jumbotron')[0].text for s in ["Le document n'a pas été trouvé", "n'existe pas"]):
                         if uri_s.split("/")[-1][-2] == "v":
                             uri_s = uri_s[:-2]
                         else:
                             res["deleted_notice"] = True
+                            return res
                     # wrong URI
                     elif "Le document n'est pas visible dans cet espace." in soup.find_all(class_='jumbotron')[0].text:
                         uri_s = "https://hal.archives-ouvertes.fr/" + uri_s.split("/")[-1]
                         if res_retries > 1:
                             uri_s = "https://hal.archives-ouvertes.fr/view/resolver?identifiant=" + uri_s.split("/")[-1]
-                    elif "Le document n'a pas été trouvé"  in soup.find_all(class_='jumbotron')[0].text:
-                        return -1
+                    elif "Le document n'a pas été trouvé" in soup.find_all(class_='jumbotron')[0].text:
+                        res["deleted_notice"] = True
+                        return res
                     elif "Le document n'est pas indexé" in soup.find_all(class_='jumbotron')[0].text:
                         res_retries = 4
                     else:
                         time.sleep(0.3)
                 except Exception as e:
+                    print(uri_s, end=" :")
                     print(e)
                     # no metrics on hal-hceres portal
                     if "hal-hceres.archives-ouvertes.fr" in uri_s:
                         res_retries = 4
                     pass
         except Exception as e:
-            print(e)
+            if res_retries > 2:
+                print(uri_s, end=" :")
+                print(e)
+            if "Exceeded 30 redirects" in str(e):
+                uri_s = "https://hal.archives-ouvertes.fr/" + uri_s.split("/")[-1]
             # bad uri (too_many_redirects)
             uri_s = "https://hal.archives-ouvertes.fr/" + uri_s.split("/")[-1]
         res_retries += 1
 
     if res_ok is False:
-        print(uri_s)
+        print(uri_s, end = " : ")
         print("error retrieving metrics")
     return res

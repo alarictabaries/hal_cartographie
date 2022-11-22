@@ -36,8 +36,8 @@ rows = 10000
 # lte = 2020
 # to-do : >"2017-07-01T00:00:00Z"
 
-gte = "2010-01-01T00:00:00Z"
-lte = "2012-01-01T00:00:00Z"
+gte = "2022-01-01T00:00:00Z"
+lte = "2022-11-01T00:00:00Z"
 
 def is_name(name):
     names_banlist = ["project", "migration", "imt", "service", "institutional", "repository", "bibliotheque", "archive",
@@ -324,8 +324,6 @@ while increment < count:
 
                         "inst_name": notice["inst_name"],
                         "lab_name": notice["lab_name"],
-
-                        "authIdHal_s": notice["authIdHal_s"],
 
                         "submittedDate_tdate": notice["submittedDate_tdate"],
                         "modifiedDate_tdate": notice["modifiedDate_tdate"],
