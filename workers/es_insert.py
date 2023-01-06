@@ -21,10 +21,10 @@ es = Elasticsearch(hosts="http://elastic:" + os.environ.get('ES_PASSWORD') + "@l
 
 flags = 'docid,halId_s,authIdHal_s,doiId_s,openAccess_bool,authIdHal_s,submittedDate_tdate,publicationDateY_i,modifiedDate_tdate,' \
         'title_s,*_abstract_s,*_keyword_s,fulltext_t,domain_s,primaryDomain_s,docType_s,labStructIdName_fs,' \
-        'conferenceEndDate_tdate,conferenceStartDate_tdate,defenseDate_tdate,ePublicationDate_tdate,' \
+        'conferenceEndDate_tdate,conferenceStartDate_tdate,defenseDate_tdate,ePublicationDate_tdate,owners_i,' \
         'producedDate_tdate,publicationDate_tdate,releasedDate_tdate,writingDate_tdate,instStructIdName_fs,' \
         'submittedDateY_i,submittedDateM_i,modifiedDateY_i,contributorId_i,contributorFullName_s,contributorFullNameId_fs,authFullName_s,structAddress_s,' \
-        'authIdHasStructure_fs,structCode_s,structIdName_fs,structHasAlphaAuthId_fs,fileMain_s,' \
+        'authIdHasStructure_fs,structCode_s,structIdName_fs,structHasAlphaAuthId_fs,fileMain_s,authFullNameFormIDPersonIDIDHal_fs,selfArchiving_bool,' \
         'journalSherpaPrePrint_s,journalSherpaPostPrint_s,journalSherpaPostRest_s,journalSherpaPreRest_s,selfArchiving_bool,uri_s'
 
 increment = 0
@@ -36,8 +36,8 @@ rows = 10000
 # lte = 2020
 # to-do : >"2017-07-01T00:00:00Z"
 
-gte = "2022-01-01T00:00:00Z"
-lte = "2022-11-01T00:00:00Z"
+gte = "2022-10-01T00:00:00Z"
+lte = "2023-01-01T00:00:00Z"
 
 def is_name(name):
     names_banlist = ["project", "migration", "imt", "service", "institutional", "repository", "bibliotheque", "archive",
@@ -77,6 +77,10 @@ while increment < count:
         req = requests.get('https://api.archives-ouvertes.fr/search/?q=*&fl=' + flags + '&start=' + str(
             increment) + "&rows=" + str(rows) + "&fq=submittedDate_tdate:[" + str(gte) + " TO " + str(lte) +  "}&sort=docid%20asc")
 
+        specific_docid = False
+        if specific_docid:
+            req = requests.get('https://api.archives-ouvertes.fr/search/?q=docid:3866149&fl=' + flags + "&sort=docid%20asc")
+
         debug = False
         if debug:
             halId_s = "hal-00100058"
@@ -109,26 +113,28 @@ while increment < count:
                     # author treatment
                     if notice["selfArchiving_bool"] is True:
                         notice["contributor_type"] = "self"
-                        notice["contributor_type_processed"] = "self"
                     else:
                         hal_error = False
                         if "authFullName_s" in notice:
                             for name in notice["authFullName_s"]:
                                 if fold(name.lower()) in fold(notice["contributorFullName_s"].lower()):
                                     notice["contributor_type"] = "self"
-                                    notice["contributor_type_processed"] = "self"
                                     hal_error = True
                         if hal_error is False:
-                                notice["contributor_type"] = "other_FacetSep_" + str(notice["contributorFullNameId_fs"])
 
-                                # process contributor name (or alias)
-                                notice["contributor_type_processed"] = None
-                                name = notice["contributor_type"].split("_FacetSep_")[1]
-                                contributor_type_processed = is_name(name)
-                                if contributor_type_processed is True:
-                                    notice["contributor_type_processed"] = "intermediate"
-                                else:
-                                    notice["contributor_type_processed"] = "automated"
+                            # process contributor name (or alias)
+                            notice["contributor_type"] = None
+                            name = notice["contributorFullNameId_fs"].split("_FacetSep_")[0]
+                            is_name_bool = is_name(name)
+                            if is_name_bool is True:
+                                notice["contributor_type"] = "intermediate"
+                            else:
+                                notice["contributor_type"] = "automated"
+
+
+                    # count authors
+                    if "authFullName_s" in notice:
+                        notice["count_authors"] = len(notice["authFullName_s"])
 
                     # QD
                     notice["qd"] = round(qd.calculate(notice), 4)
@@ -274,6 +280,8 @@ while increment < count:
                     if "field_citation_ratio" not in notice:
                         notice["field_citation_ratio"] = None
                     """
+                    if 'contributorId_i' not in notice:
+                        notice["contributorId_i"] = None
                     if 'deposit_logic' not in notice:
                         notice["deposit_logic"] = None
                     if 'doiId_s' not in notice:
@@ -294,8 +302,14 @@ while increment < count:
                         notice["labStructIdName_fs"] = None
                     if "authIdHal_s" not in notice:
                         notice["authIdHal_s"] = None
+                    if "nb_authors" not in notice:
+                        notice["nb_authors"] = None
+                    if "authFullNameFormIDPersonIDIDHal_fs" not in notice:
+                        notice["authFullNameFormIDPersonIDIDHal_fs"] = None
+                    if "authFullName_s" not in notice:
+                        notice["authFullName_s"] = None
 
-                    # formatter
+                        # formatter
                     notice["inst_name"] = []
                     notice["lab_name"] = []
 
@@ -317,7 +331,19 @@ while increment < count:
                         "docType_s": notice["docType_s"],
                         "uri_s": notice["uri_s"],
 
+                        "contributorFullNameId_fs": notice["contributorFullNameId_fs"],
+                        "authFullNameFormIDPersonIDIDHal_fs": notice["authFullNameFormIDPersonIDIDHal_fs"],
+
+                        "contributorFullName_s": notice["contributorFullName_s"],
+                        "authFullName_s": notice["authFullName_s"],
+
+                        "selfArchiving_bool": notice["selfArchiving_bool"],
+
                         "authIdHal_s": notice["authIdHal_s"],
+
+                        "contributorId_i": notice["contributorId_i"],
+
+                        "nb_authors": notice["nb_authors"],
 
                         "instStructIdName_fs": notice["instStructIdName_fs"],
                         "labStructIdName_fs": notice["labStructIdName_fs"],
@@ -334,6 +360,8 @@ while increment < count:
                         "submittedDateM_i": notice["submittedDateM_i"],
                         "modifiedDateY_i": notice["modifiedDateY_i"],
 
+                        "owners": len(notice["owners_i"]),
+
                         "qd": notice["qd"],
 
                         "deposit_logic": notice["deposit_logic"],
@@ -342,7 +370,6 @@ while increment < count:
                         "postprint_embargo": notice["postprint_embargo"],
 
                         "contributor_type": notice["contributor_type"],
-                        "contributor_type_processed": notice["contributor_type_processed"],
 
                         "domain_s": notice["domain_s"],
                         "primaryDomain_s": notice["primaryDomain_s"],
@@ -365,20 +392,20 @@ while increment < count:
                     """
 
                     # if document exists, update it
-                    q = {
-                        "query": {
-                            "match": {
-                                      "docid": notice["docid"]
-                                  }
-                        }
-                    }
-                    upd_count = es.count(index="hal2", body=q)["count"]
-                    if upd_count > 0:
-                        es.update(index="hal2", id=notice["docid"], body={"doc": notice_short})
-                    else:
-                        res = es.index(index="hal2", id=notice["docid"], document=notice_short)
-                        if res["_shards"]["successful"] == 0:
-                            print("Error indexing")
-                            print(notice_short)
-                            print("\n")
+                    # q = {
+                    #     "query": {
+                    #         "match": {
+                    #                   "docid": notice["docid"]
+                    #               }
+                    #     }
+                    # }
+                    # upd_count = es.count(index="hal4", body=q)["count"]
+                    # if upd_count > 0:
+                    #     es.update(index="hal4", id=notice["docid"], body={"doc": notice_short})
+                    # else:
+                    res = es.index(index="hal4", id=notice["docid"], document=notice_short)
+                    if res["_shards"]["successful"] == 0:
+                        print("Error indexing")
+                        print(notice_short)
+                        print("\n")
     increment += rows

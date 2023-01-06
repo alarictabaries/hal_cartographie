@@ -16,7 +16,7 @@ from libs import qd
 
 es = Elasticsearch(hosts="http://elastic:" + os.environ.get('ES_PASSWORD') + "@localhost:9200/")
 
-flags = 'docid,publicationDate_tdate,submittedDate_tdate,fileMain_s,openAccess_bool'
+flags = 'docid,contributorId_i'
 
 increment = 0
 count = 1
@@ -26,8 +26,8 @@ rows = 10000
 # lte = 2020
 # to-do : >"2017-07-01T00:00:00Z"
 
-gte = "2022-06-01T00:00:00Z"
-lte = "2022-11-01T00:00:00Z"
+gte = "2022-09-01T00:00:00Z"
+lte = "2022-12-01T00:00:00Z"
 
 err_count = 0
 
@@ -63,37 +63,12 @@ while increment < count:
 
                 for notice in data['docs']:
 
-                    if 'publicationDate_tdate' not in notice:
-                        notice['publicationDate_tdate'] = None
-
-                    if notice['publicationDate_tdate']:
-
-                        notice["has_file"] = False
-                        if "fileMain_s" in notice:
-                            notice["has_file"] = True
-
-                        deposit_delta = parser.parse(notice["submittedDate_tdate"]) - parser.parse(
-                            notice["publicationDate_tdate"])
-                        if notice["has_file"] or notice["openAccess_bool"]:
-                            # more than 1y
-                            if deposit_delta.total_seconds() > 31536000:
-                                notice["deposit_logic"] = "archiving"
-                            elif deposit_delta.total_seconds() <= 31536000:
-                                notice["deposit_logic"] = "communicating"
-                        else:
-                            # more than 1y
-                            if deposit_delta.total_seconds() > 31536000:
-                                notice["deposit_logic"] = "censusing"
-                            elif deposit_delta.total_seconds() <= 31536000:
-                                notice["deposit_logic"] = "referencing"
-
-                    if 'deposit_logic' not in notice:
-                        notice['deposit_logic'] = None
+                    if 'contributorId_i' not in notice:
+                        notice['contributorId_i'] = None
 
                     try:
                         res = es.update(index="hal2", id=notice["docid"], body={
-                            "doc": {"publicationDate_tdate": notice["publicationDate_tdate"],
-                                    "deposit_logic": notice["deposit_logic"]}})
+                            "doc": {"contributorId_i": notice["contributorId_i"]}})
                     except:
                         err_count += 1
                         print(notice)

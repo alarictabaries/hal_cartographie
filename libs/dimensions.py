@@ -12,4 +12,5 @@ def get_metrics(doiId_s):
         if "times_cited" in response:
             res['times_cited'] = response['times_cited']
             res['field_citation_ratio'] = response['field_citation_ratio']
+            res['relative_citation_ratio'] = response['relative_citation_ratio']
     return res

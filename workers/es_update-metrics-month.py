@@ -24,9 +24,9 @@ def update_specific_notice(notice):
         # overkill security
         if hal_metrics["deleted_notice"]:
             # notice["deleted_notice"] = True
-            es.update(index="hal4", id=notice["docid"], body={"doc": {"deleted": True}})
+            es.update(index="hal2", id=notice["docid"], body={"doc": {"deleted": True}})
             print("Notice {} is marked as deleted".format(notice["halId_s"]))
-            # es.delete(index="hal4", id=notice["docid"])
+            # es.delete(index="hal2", id=notice["docid"])
             return True
 
     if "times_viewed" in hal_metrics:
@@ -41,8 +41,6 @@ def update_specific_notice(notice):
             notice["times_cited"] = dimensions_metrics["times_cited"]
         if "field_citation_ratio" in dimensions_metrics:
             notice["field_citation_ratio"] = dimensions_metrics["field_citation_ratio"]
-        if "relative_citation_ratio" in dimensions_metrics:
-            notice["relative_citation_ratio"] = dimensions_metrics["relative_citation_ratio"]
 
     if "times_viewed" not in notice:
         notice["times_viewed"] = None
@@ -52,21 +50,20 @@ def update_specific_notice(notice):
         notice["times_cited"] = None
     if "field_citation_ratio" not in notice:
         notice["field_citation_ratio"] = None
-    if "relative_citation_ratio" not in notice:
-        notice["relative_citation_ratio"] = None
 
     # counter update if hal "Max retries exceeded with"
     if "times_viewed" in hal_metrics or "times_downloaded" in hal_metrics:
         if notice["doiId_s"] is not None:
-            if "times_cited" in dimensions_metrics or "field_citation_ratio" in dimensions_metrics or 'error' in dimensions_metrics or notice["doiId_s"] is None:
-                es.update(index="hal4", id=notice["docid"], body={
+            if "times_cited" in dimensions_metrics or "field_citation_ratio" in dimensions_metrics or 'error' in dimensions_metrics or \
+                    notice["doiId_s"] is None:
+                es.update(index="hal2", id=notice["docid"], body={
                     "doc": {"times_cited": notice["times_cited"],
                             "field_citation_ratio": notice["field_citation_ratio"],
                             "times_viewed": notice["times_viewed"], "times_downloaded": notice["times_downloaded"],
                             "metrics_harvested_on": datetime.now().isoformat()}})
         else:
-            es.update(index="hal4", id=notice["docid"], body={
-                "doc": {"times_cited": notice["times_cited"], "field_citation_ratio": notice["field_citation_ratio"], "relative_citation_ratio": notice["relative_citation_ratio"],
+            es.update(index="hal2", id=notice["docid"], body={
+                "doc": {"times_cited": notice["times_cited"], "field_citation_ratio": notice["field_citation_ratio"],
                         "times_viewed": notice["times_viewed"], "times_downloaded": notice["times_downloaded"],
                         "metrics_harvested_on": datetime.now().isoformat()}})
     else:
@@ -80,7 +77,6 @@ def update_specific_notice(notice):
 
 
 def update_notices(gte, lte, update_lt):
-
     create = True
 
     if create:
@@ -91,13 +87,13 @@ def update_notices(gte, lte, update_lt):
                         "range": {
                             "submittedDate_tdate": {
                                 "gte": gte,
-                                "lte": lte
+                                "lt": lte
                             }
                         }
                     },
                     "must_not": {
                         "exists": {
-                            #"field": "times_viewed"
+                            # "field": "times_viewed"
                             "field": "metrics_harvested_on"
                         }
                     }
@@ -130,13 +126,13 @@ def update_notices(gte, lte, update_lt):
             }
         }
 
-    count = es.count(index="hal4", body=q)["count"]
+    count = es.count(index="hal2", body=q)["count"]
     if count == 0:
         pass
     else:
         print("Thread (start) : Processing {} notices".format(count))
         # preserve_order=True
-        res_scope = scan(es, index="hal4", query=q, scroll="60m", clear_scroll=True)
+        res_scope = scan(es, index="hal2", query=q, scroll="60m", clear_scroll=True)
         # "no search context found for id..."
         try:
             for doc in res_scope:
@@ -150,33 +146,26 @@ def update_notices(gte, lte, update_lt):
 
 
 # scope...
-min_submitted_year = 2001
-max_submitted_year = 2022
+min_submitted_year = "2022-11-01"
+max_submitted_year = "2022-11-"
 
 # harvested_on before....
 update_lt = "2022-11-21T17:18:02.000Z"
 
 print(time.strftime("%H:%M:%S", time.localtime()) + ": Scraping started")
 
-step = 15
-for year in range(min_submitted_year, max_submitted_year + 1):
-    for month in range(1, 13):
+update_notices("2022-11-30", "2022-12-01", update_lt)
 
-        month_processing = True
-        if month_processing:
-            gte = str(year) + "-" + str(month).zfill(2) + "-01"
-            upper_limit_day = calendar.monthrange(year, month)[1]
-            lte = str(year) + "-" + str(month).zfill(2) + "-" + str(upper_limit_day).zfill(2)
-            t = threading.Thread(target=update_notices, args=(gte, lte, update_lt))
-            t.start()
-        else:
-            for day in range(1, calendar.monthrange(year, month)[1] + 1, step):
-                if (day + step) > calendar.monthrange(year, month)[1]:
-                    upper_limit_day = calendar.monthrange(year, month)[1] - day
-                else:
-                    upper_limit_day = day + step
-                if upper_limit_day != 0:
-                    gte = str(year) + "-" + str(month).zfill(2) + "-" + str(day).zfill(2)
-                    lte = str(year) + "-" + str(month).zfill(2) + "-" + str(upper_limit_day).zfill(2)
-                    t = threading.Thread(target=update_notices, args=(gte, lte, update_lt))
-                    t.start()
+# step = 1
+# for h in range(0, 23, step):
+#     gte = "2022-11-30T" + str(h).zfill(2) + ":00:00.000Z"
+#     lte = "2022-11-30T" + str(h + 1).zfill(2) + ":00:00.000Z"
+#     t = threading.Thread(target=update_notices, args=(gte, lte, update_lt))
+#     t.start()
+
+# step = 1
+# for day in range(1, calendar.monthrange(2022, 11)[1], step):
+#     gte = max_submitted_year + str(day).zfill(2)
+#     lte = max_submitted_year + str(day+1).zfill(2)
+#     t = threading.Thread(target=update_notices, args=(gte, lte, update_lt))
+#     t.start()
