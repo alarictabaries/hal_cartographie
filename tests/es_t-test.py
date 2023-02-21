@@ -20,7 +20,7 @@ def get_aggs(param):
     aggs_query = {
         "query": {
             "match": {
-                "has_keywords": param
+                "has_abstract": param
             }
         },
         "size": 0,
@@ -29,21 +29,9 @@ def get_aggs(param):
                 "range": {
                     "field": field,
                     "ranges": [
-                        {"to": 10},
-                        {"from": 10, "to": 20},
-                        {"from": 20, "to": 30},
-                        {"from": 30, "to": 40},
-                        {"from": 40, "to": 50},
-                        {"from": 50, "to": 60},
-                        {"from": 60, "to": 70},
-                        {"from": 70, "to": 80},
-                        {"from": 80, "to": 90},
-                        {"from": 90, "to": 100},
-                        {"from": 100, "to": 110},
-                        {"from": 110, "to": 120},
-                        {"from": 120, "to": 130},
-                        {"from": 130, "to": 140},
-                        {"from": 140, "to": 150}
+                        {"to": 50},
+                        {"from": 50, "to": 100},
+                        {"from": 100, "to": 250}
                     ]
                 }
             }
@@ -108,47 +96,13 @@ for r in qd_ranges:
         row.append(key['doc_count'])
     table.append(row)
 
+table = [
+    [0, 10, 100],
+    [100, 10, 0]
+]
+
 print(table)
 
-print(np.corrcoef(table[0], table[1]))
-corr, p = pearsonr(table[0], table[1])
-print('Pearsons correlation: %.3f' % corr)
-alpha = 0.10
-if p > alpha:
-    print('Samples are uncorrelated (fail to reject H0) p=%.3f' % p)
-else:
-    print('Samples are correlated (reject H0) p=%.3f' % p)
-
-print(np.corrcoef(table[0], table[1]))
-corr, p = spearmanr(table[0], table[1])
-print('Spearmans correlation: %.3f' % corr)
-alpha = 0.05
-if p > alpha:
-    print('Samples are uncorrelated (fail to reject H0) p=%.3f' % p)
-else:
-    print('Samples are correlated (reject H0) p=%.3f' % p)
-
-print("khi2")
-stat, p, dof, expected = chi2_contingency(table)
-print('dof=%d' % dof)
-print(stat)
-print(p)
-print(expected)
-# interpret test-statistic
-
-prob = 0.95
-critical = chi2.ppf(prob, dof)
-print('probability=%.3f, critical=%.3f, stat=%.3f' % (prob, critical, stat))
-if abs(stat) >= critical:
-    print('Dependent (reject H0)')
-else:
-    print('Independent (fail to reject H0)')
-# interpret p-value
-alpha = 1.0 - prob
-print('significance=%.3f, p=%.3f' % (alpha, p))
-if p <= alpha:
-    print('Dependent (reject H0)')
-else:
-    print('Independent (fail to reject H0)')
-
-print(association(table, method="cramer"))
+from scipy.stats import ttest_ind, ttest_rel
+result = ttest_ind(table[0], table[1])
+print(result)

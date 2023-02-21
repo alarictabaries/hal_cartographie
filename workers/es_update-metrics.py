@@ -18,7 +18,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def update_specific_notice(notice):
     # get HAL metrics
-    hal_metrics = hal.get_metrics(notice["uri_s"])
+    hal_metrics = hal.get_metrics_v2(notice["uri_s"])
 
     if "deleted_notice" in hal_metrics:
         # overkill security
@@ -62,6 +62,7 @@ def update_specific_notice(notice):
                 es.update(index="hal4", id=notice["docid"], body={
                     "doc": {"times_cited": notice["times_cited"],
                             "field_citation_ratio": notice["field_citation_ratio"],
+                            "relative_citation_ratio": notice["relative_citation_ratio"],
                             "times_viewed": notice["times_viewed"], "times_downloaded": notice["times_downloaded"],
                             "metrics_harvested_on": datetime.now().isoformat()}})
         else:
@@ -150,7 +151,7 @@ def update_notices(gte, lte, update_lt):
 
 
 # scope...
-min_submitted_year = 2001
+min_submitted_year = 2002
 max_submitted_year = 2022
 
 # harvested_on before....
@@ -158,7 +159,7 @@ update_lt = "2022-11-21T17:18:02.000Z"
 
 print(time.strftime("%H:%M:%S", time.localtime()) + ": Scraping started")
 
-step = 15
+step = 1
 for year in range(min_submitted_year, max_submitted_year + 1):
     for month in range(1, 13):
 

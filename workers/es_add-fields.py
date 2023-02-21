@@ -16,7 +16,7 @@ from libs import qd
 
 es = Elasticsearch(hosts="http://elastic:" + os.environ.get('ES_PASSWORD') + "@localhost:9200/")
 
-flags = 'docid,contributorId_i'
+flags = 'docid,collCode_s'
 
 increment = 0
 count = 1
@@ -26,8 +26,8 @@ rows = 10000
 # lte = 2020
 # to-do : >"2017-07-01T00:00:00Z"
 
-gte = "2022-09-01T00:00:00Z"
-lte = "2022-12-01T00:00:00Z"
+gte = "2022-06-01T00:00:00Z"
+lte = "2023-01-01T00:00:00Z"
 
 err_count = 0
 
@@ -63,12 +63,12 @@ while increment < count:
 
                 for notice in data['docs']:
 
-                    if 'contributorId_i' not in notice:
-                        notice['contributorId_i'] = None
+                    if 'collCode_s' not in notice:
+                        notice['collCode_s'] = None
 
                     try:
-                        res = es.update(index="hal2", id=notice["docid"], body={
-                            "doc": {"contributorId_i": notice["contributorId_i"]}})
+                        res = es.update(index="hal4", id=notice["docid"], body={
+                            "doc": {"collCode_s": notice["collCode_s"]}})
                     except:
                         err_count += 1
                         print(notice)

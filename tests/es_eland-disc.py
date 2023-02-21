@@ -6,8 +6,7 @@ from sklearn.tree import DecisionTreeClassifier
 from eland.ml import MLModel
 import numpy as np
 
-metric = "times_downloaded" # times_viewed times_downloaded field_citation_ratio
-param = "has_keywords" # has_abstract has_keywords has_file
+metric = "field_citation_ratio"
 
 df = ed.DataFrame(
     es_client="http://elastic:" + os.environ.get('ES_PASSWORD') + "@localhost:9200/",
@@ -16,20 +15,14 @@ df = ed.DataFrame(
 df = df.query("submittedDateY_i  < 2020")
 df = df.query("submittedDateY_i  > 2016")
 df = df.query(metric + ' >= 0')
-print(df.shape)
 # must -> shs | must_not -> stm
-df = df.es_query({"bool": {"must": [{"match": {"domain_s.keyword": "1.shs.info"}}]}})
-##### df = df.es_match("domain_s : '0.shs'")
 # df = df.es_match("ART", columns=["docType_s"])
 
-print(df.shape)
-print(df["domain_s"])
+param_t = df.es_query({"bool": {"must": [{"match": {"domain_s": "*shs*"}}]}})
+param_f = df.es_query({"bool": {"must_not": [{"match": {"domain_s": "*shs*"}}]}})
 
-param_t = df.query(param + ' == True')
-param_f = df.query(param + ' == False')
-
-param_t = param_t.sample(n=10000, random_state=0)[[param, metric, "domain_s"]]
-param_f = param_f.sample(n=10000, random_state=0)[[param, metric, "domain_s"]]
+param_t = param_t.sample(n=10000, random_state=0)[[metric]]
+param_f = param_f.sample(n=10000, random_state=0)[[metric]]
 
 
 param_t = ed.eland_to_pandas(param_t)
@@ -40,11 +33,11 @@ group2 = param_f.values.tolist()
 
 gr1 = []
 for item in group1:
-    gr1.append(item[1])
+    gr1.append(item[0])
 
 gr2 = []
 for item in group2:
-    gr2.append(item[1])
+    gr2.append(item[0])
 
 print(np.mean(gr1))
 print(np.mean(gr2))

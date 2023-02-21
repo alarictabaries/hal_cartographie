@@ -110,6 +110,8 @@ while increment < count:
                         # notice["modifiedDateY_i"] = notice["submittedDateY_i"]
                         notice["modifiedDateY_i"] = None
 
+                    nb_authors = len(notice["authFullName_s"])
+
                     # author treatment
                     if notice["selfArchiving_bool"] is True:
                         notice["contributor_type"] = "self"

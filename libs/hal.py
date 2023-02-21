@@ -33,13 +33,89 @@ def count_notices(field, value):
                 return data["response"]["numFound"]
 
 
+def get_metrics_v2(uri_s):
+    res = {}
+    res_ok = False
+    res_retries = 0
+
+
+    while res_ok is False and res_retries < 6:
+        # notice = http.get(uri_s, verify=False)
+        try:
+            notice = requests.request("GET", uri_s, verify=False)
+            notice_t = html.unescape(notice.text)
+            soup = BeautifulSoup(notice_t, 'html.parser')
+            try:
+                metrics = soup.find("div", {"id": "metrics"}).find(class_="row").findChildren(recursive=False)
+                for metric in metrics:
+                    if "Consultations" in metric.text or "View" in metric.text:
+                        res['times_viewed'] = int(metric.find_all('span')[0].text)
+                        res_ok = True
+                    if "Téléchargements" in metric.text or "Download" in metric.text:
+                        res['times_downloaded'] = int(metric.find_all('span')[0].text)
+            except:
+                try:
+                    errors = soup.find_all(class_='section-corps')
+                    errors_txt = ""
+                    for err in errors:
+                        errors_txt += " " + err.text
+                    # URI with version number (ex: https://hal.archives-ouvertes.fr/ijn_02985466v2)
+                    if "Le document n'est pas visible dans cet espace" in errors_txt:
+                        uri_s = "https://hal.archives-ouvertes.fr/" + uri_s.split("/")[-1]
+                        if res_retries > 1:
+                            uri_s = "https://hal.archives-ouvertes.fr/view/resolver?identifiant=" + uri_s.split("/")[-1]
+                        if res_retries > 2:
+                            uri_s = "https://hal.archives-ouvertes.fr/" + uri_s.split("/")[-1]
+                    # hceres has no stats
+                    elif "hal-hceres.archives-ouvertes.fr" in uri_s:
+                        return res
+                    elif not uri_s.split("-")[-1].isdigit() or len(uri_s.split("-")[-1]) != 8:
+                        uri_s = "https://hal.archives-ouvertes.fr/" + uri_s.split("/")[-1].split("v")[0]
+                    elif all(s in errors_txt for s in ["Le document n'a pas été trouvé", "n'existe pas"]):
+                        if uri_s.split("/")[-1][-2] == "v":
+                            uri_s = uri_s[:-2]
+                        else:
+                            res["deleted_notice"] = True
+                            return res
+                    # wrong URI
+                    elif "Le document n'est pas indexé" in errors_txt:
+                        return res
+                    else:
+                        time.sleep(0.3)
+                except Exception as e:
+                    print(uri_s, end=" :")
+                    print(e)
+                    # no metrics on hal-hceres portal
+                    if "hal-hceres.archives-ouvertes.fr" in uri_s:
+                        return res
+                    if "hceres" in uri_s.split("/")[-1]:
+                        return res
+                    # http://hal.univ-nantes.fr/hal-03694821 :list index out of range
+                    if "list index out of range" in str(e):
+                        uri_s = "https://hal.archives-ouvertes.fr/" + uri_s.split("/")[-1]
+                    pass
+        except Exception as e:
+            if res_retries > 2:
+                print(uri_s, end=" :")
+                print(e)
+            if "Exceeded 30 redirects" in str(e):
+                uri_s = "https://hal.archives-ouvertes.fr/" + uri_s.split("/")[-1]
+            # bad uri (too_many_redirects)
+            uri_s = "https://hal.archives-ouvertes.fr/" + uri_s.split("/")[-1]
+        res_retries += 1
+
+    if res_ok is False:
+        print(uri_s, end = " : ")
+        print("error retrieving metrics")
+    return res
+
 def get_metrics(uri_s):
     res = {}
     res_ok = False
     res_retries = 0
 
 
-    while res_ok is False and res_retries < 4:
+    while res_ok is False and res_retries < 6:
         # notice = http.get(uri_s, verify=False)
         try:
             notice = requests.request("GET", uri_s, verify=False)
@@ -56,11 +132,15 @@ def get_metrics(uri_s):
             except:
                 try:
                     # URI with version number (ex: https://hal.archives-ouvertes.fr/ijn_02985466v2)
-                    if not uri_s.split("-")[-1].isdigit() or len(uri_s.split("-")[-1]) != 8:
-                        uri_s = "https://hal.archives-ouvertes.fr/" + uri_s.split("/")[-1].split("v")[0]
+                    if "Le document n'est pas visible dans cet espace." in soup.find_all(class_='jumbotron')[0].text:
+                        uri_s = "https://hal.archives-ouvertes.fr/" + uri_s.split("/")[-1]
+                        if res_retries > 1:
+                            uri_s = "https://hal.archives-ouvertes.fr/view/resolver?identifiant=" + uri_s.split("/")[-1]
                     # hceres has no stats
                     elif "hal-hceres.archives-ouvertes.fr" in uri_s:
                         return res
+                    elif not uri_s.split("-")[-1].isdigit() or len(uri_s.split("-")[-1]) != 8:
+                        uri_s = "https://hal.archives-ouvertes.fr/" + uri_s.split("/")[-1].split("v")[0]
                     elif all(s in soup.find_all(class_='jumbotron')[0].text for s in ["Le document n'a pas été trouvé", "n'existe pas"]):
                         if uri_s.split("/")[-1][-2] == "v":
                             uri_s = uri_s[:-2]
@@ -68,10 +148,6 @@ def get_metrics(uri_s):
                             res["deleted_notice"] = True
                             return res
                     # wrong URI
-                    elif "Le document n'est pas visible dans cet espace." in soup.find_all(class_='jumbotron')[0].text:
-                        uri_s = "https://hal.archives-ouvertes.fr/" + uri_s.split("/")[-1]
-                        if res_retries > 1:
-                            uri_s = "https://hal.archives-ouvertes.fr/view/resolver?identifiant=" + uri_s.split("/")[-1]
                     elif "Le document n'est pas indexé" in soup.find_all(class_='jumbotron')[0].text:
                         return res
                     else:
@@ -81,7 +157,12 @@ def get_metrics(uri_s):
                     print(e)
                     # no metrics on hal-hceres portal
                     if "hal-hceres.archives-ouvertes.fr" in uri_s:
-                        res_retries = 4
+                        return res
+                    if "hceres" in uri_s.split("/")[-1]:
+                        return res
+                    # http://hal.univ-nantes.fr/hal-03694821 :list index out of range
+                    if "list index out of range" in str(e):
+                        uri_s = "https://hal.archives-ouvertes.fr/" + uri_s.split("/")[-1]
                     pass
         except Exception as e:
             if res_retries > 2:
