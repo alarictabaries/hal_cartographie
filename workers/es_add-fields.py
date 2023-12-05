@@ -16,7 +16,7 @@ from libs import qd
 
 es = Elasticsearch(hosts="http://elastic:" + os.environ.get('ES_PASSWORD') + "@localhost:9200/")
 
-flags = 'docid,collCode_s'
+flags = 'docid,linkExtUrl_s,linkExtId_s'
 
 increment = 0
 count = 1
@@ -63,12 +63,14 @@ while increment < count:
 
                 for notice in data['docs']:
 
-                    if 'collCode_s' not in notice:
-                        notice['collCode_s'] = None
+                    if 'linkExtId_s' not in notice:
+                        notice['linkExtId_s'] = None
+                    if 'linkExtUrl_s' not in notice:
+                        notice['linkExtUrl_s'] = None
 
                     try:
                         res = es.update(index="hal4", id=notice["docid"], body={
-                            "doc": {"collCode_s": notice["collCode_s"]}})
+                            "doc": {"linkExtId_s": notice["linkExtId_s"], "linkExtUrl_s": notice["linkExtUrl_s"]}})
                     except:
                         err_count += 1
                         print(notice)

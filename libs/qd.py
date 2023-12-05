@@ -67,10 +67,19 @@ def calculate(notice):
     else:
         has_abstract = False
 
-    if 'fileMain_s' in notice or "linkExtUrl_s" in notice or notice["openAccess_bool"] == 1:
+    # if 'fileMain_s' in notice or "linkExtUrl_s" in notice or notice["openAccess_bool"] == 1:
+    #     has_attached_file = True
+    # else:
+    #     has_attached_file = False
+
+    if 'fileMain_s' in notice:
         has_attached_file = True
     else:
-        has_attached_file = False
+        # ArXiv, diamants
+        if "linkExtUrl_s" in notice and notice["openAccess_bool"] == 1:
+            has_attached_file = True
+        else:
+            has_attached_file = False
 
     if has_title:
         score += 1 * 0.1

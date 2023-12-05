@@ -13,12 +13,13 @@ df = ed.DataFrame(
     es_client="http://elastic:" + os.environ.get('ES_PASSWORD') + "@localhost:9200/",
     es_index_pattern="hal4",
 )
-df = df.query("submittedDateY_i  < 2020")
-df = df.query("submittedDateY_i  > 2016")
+df = df.query("submittedDateY_i  < 2018")
+df = df.query("submittedDateY_i  > 2014")
 df = df.query(metric + ' >= 0')
 print(df.shape)
 # must -> shs | must_not -> stm
-df = df.es_query({"bool": {"must": [{"match": {"domain_s.keyword": "1.shs.info"}}]}})
+# df = df.es_query({"bool": {"must": [{"match": {"domain_s.keyword": "1.shs.info"}}]}})
+df = df.es_query({"bool": {"must": [{"match": {"domain_s.keyword": "0.shs"}}]}})
 ##### df = df.es_match("domain_s : '0.shs'")
 # df = df.es_match("ART", columns=["docType_s"])
 
@@ -28,8 +29,8 @@ print(df["domain_s"])
 param_t = df.query(param + ' == True')
 param_f = df.query(param + ' == False')
 
-param_t = param_t.sample(n=10000, random_state=0)[[param, metric, "domain_s"]]
-param_f = param_f.sample(n=10000, random_state=0)[[param, metric, "domain_s"]]
+param_t = param_t.sample(n=8000, random_state=0)[[param, metric, "domain_s"]]
+param_f = param_f.sample(n=8000, random_state=0)[[param, metric, "domain_s"]]
 
 
 param_t = ed.eland_to_pandas(param_t)

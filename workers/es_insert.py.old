@@ -17,19 +17,16 @@ from names_dataset import NameDataset
 
 
 nd = NameDataset()
-# connexion à ES
 es = Elasticsearch(hosts="http://elastic:" + os.environ.get('ES_PASSWORD') + "@localhost:9200/")
 
-# flags nécessaires
 flags = 'docid,halId_s,authIdHal_s,doiId_s,openAccess_bool,authIdHal_s,submittedDate_tdate,publicationDateY_i,modifiedDate_tdate,' \
-        'title_s,*_abstract_s,*_keyword_s,fulltext_t,domain_s,primaryDomain_s,docType_s,labStructIdName_fs,labStructId_i,labStructAcronym_s,*_title_s,' \
-        'conferenceEndDate_tdate,conferenceStartDate_tdate,defenseDate_tdate,ePublicationDate_tdate,owners_i,collCode_s,instStructId_i' \
+        'title_s,*_abstract_s,*_keyword_s,fulltext_t,domain_s,primaryDomain_s,docType_s,labStructIdName_fs,' \
+        'conferenceEndDate_tdate,conferenceStartDate_tdate,defenseDate_tdate,ePublicationDate_tdate,owners_i,' \
         'producedDate_tdate,publicationDate_tdate,releasedDate_tdate,writingDate_tdate,instStructIdName_fs,linkExtUrl_s,linkExtId_s,' \
-        'submittedDateY_i,submittedDateM_i,modifiedDateY_i,contributorId_i,contributorFullName_s,contributorFullNameId_fs,authFullName_s,structAddress_s,instStructAcronym_s,' \
+        'submittedDateY_i,submittedDateM_i,modifiedDateY_i,contributorId_i,contributorFullName_s,contributorFullNameId_fs,authFullName_s,structAddress_s,' \
         'authIdHasStructure_fs,structCode_s,structIdName_fs,structHasAlphaAuthId_fs,fileMain_s,authFullNameFormIDPersonIDIDHal_fs,selfArchiving_bool,' \
-        'journalSherpaPrePrint_s,journalSherpaPostPrint_s,journalSherpaPostRest_s,journalSherpaPreRest_s,selfArchiving_bool,uri_s,journalTitle_s,journalTitleAbbr_s,journalId_i'
+        'journalSherpaPrePrint_s,journalSherpaPostPrint_s,journalSherpaPostRest_s,journalSherpaPreRest_s,selfArchiving_bool,uri_s'
 
-# paramètres HAL API
 increment = 0
 count = 1
 rows = 10000
@@ -42,7 +39,6 @@ rows = 10000
 gte = "2022-10-01T00:00:00Z"
 lte = "2023-01-01T00:00:00Z"
 
-# vérifie si le nom du contributeur est un nom de personne
 def is_name(name):
     names_banlist = ["project", "migration", "imt", "service", "institutional", "repository", "bibliotheque", "archive",
                      "bibliothèque", "bmc", "elsevier", "institution", "institut", "archive", "migration", "irsn",
@@ -68,7 +64,7 @@ def is_name(name):
     else:
         return False
 
-# boucle dans les résultats de l'API
+
 while increment < count:
 
     print(time.strftime("%H:%M:%S", time.localtime()), end=' : ')
@@ -80,6 +76,17 @@ while increment < count:
 
         req = requests.get('https://api.archives-ouvertes.fr/search/?q=*&fl=' + flags + '&start=' + str(
             increment) + "&rows=" + str(rows) + "&fq=submittedDate_tdate:[" + str(gte) + " TO " + str(lte) +  "}&sort=docid%20asc")
+
+        specific_docid = False
+        if specific_docid:
+            req = requests.get('https://api.archives-ouvertes.fr/search/?q=docid:3866149&fl=' + flags + "&sort=docid%20asc")
+
+        debug = False
+        if debug:
+            halId_s = "hal-00100058"
+            req = requests.get('https://api.archives-ouvertes.fr/search/?q=halId_s:' + halId_s  + '&fl=' + flags + '&start=' + str(
+                increment) + "&rows=" + str(rows) + "&fq=submittedDate_tdate:[" + str(gte) + " TO " + str(
+                lte) + "}&sort=docid%20asc")
 
         if req.status_code == 200:
             data = req.json()
@@ -96,10 +103,16 @@ while increment < count:
                 data = data['response']
                 count = data['numFound']
 
-                # pour chaque notice
+                # unit treatment
                 for notice in data['docs']:
 
-                    # traitement du contributeur
+                    if "modifiedDateY_i" not in notice:
+                        # notice["modifiedDateY_i"] = notice["submittedDateY_i"]
+                        notice["modifiedDateY_i"] = None
+
+                    nb_authors = len(notice["authFullName_s"])
+
+                    # author treatment
                     if notice["selfArchiving_bool"] is True:
                         notice["contributor_type"] = "self"
                     else:
@@ -121,14 +134,9 @@ while increment < count:
                                 notice["contributor_type"] = "automated"
 
 
-                    # compte des auteurs
+                    # count authors
                     if "authFullName_s" in notice:
                         notice["count_authors"] = len(notice["authFullName_s"])
-                    if "authIdHal_s" in notice:
-                        notice["count_halIds"] = len(notice["authIdHal_s"])
-
-                    if "count_authors" in notice and "count_halIds" in notice:
-                        notice["authors_halIds_percentage"] = notice["count_halIds"] * 100 / notice["count_authors"]
 
                     # QD
                     notice["qd"] = round(qd.calculate(notice), 4)
@@ -172,7 +180,7 @@ while increment < count:
                             else:
                                 notice["preprint_embargo"] = None
 
-                    # paramètres de QD individuels
+                    # get QD parameters individually
                     notice["has_file"] = False
                     if "fileMain_s" in notice:
                         notice["has_file"] = True
@@ -227,7 +235,7 @@ while increment < count:
                     else:
                         notice["has_abstract"] = False
 
-                    # logique de dépôt
+                    # deposit logic
                     if notice["publicationDate_tdate"]:
                         deposit_delta = parser.parse(notice["submittedDate_tdate"]) - parser.parse(notice["publicationDate_tdate"])
                         if notice["has_file"] or notice["openAccess_bool"]:
@@ -242,8 +250,6 @@ while increment < count:
                                 notice["deposit_logic"] = "censusing"
                             elif deposit_delta.total_seconds() <= 31536000:
                                 notice["deposit_logic"] = "referencing"
-
-                    notice["deposit_delta"] = deposit_delta
 
                     """
                     # get metrics
@@ -261,7 +267,7 @@ while increment < count:
                             notice["field_citation_ratio"] = dimensions_metrics["field_citation_ratio"]
                     """
 
-                    # filtres pour les éventuelles erreurs ES
+                    # filters
                     if "domain_s" not in notice:
                         notice["domain_s"] = None
                     if "instStructIdName_fs" not in notice:
@@ -276,8 +282,6 @@ while increment < count:
                     if "field_citation_ratio" not in notice:
                         notice["field_citation_ratio"] = None
                     """
-                    if "authors_halIds_percentage" not in notice:
-                        notice["authors_halIds_percentage"] = None
                     if 'contributorId_i' not in notice:
                         notice["contributorId_i"] = None
                     if 'deposit_logic' not in notice:
@@ -298,12 +302,10 @@ while increment < count:
                         notice["submittedDate_tdate"] = datetime.fromisoformat(notice["submittedDate_tdate"][:-1])
                     if "labStructIdName_fs" not in notice:
                         notice["labStructIdName_fs"] = None
-                    if "labStructId_i" not in notice:
-                        notice["labStructId_i"] = None
-                    if "labStructAcronym_s" not in notice:
-                        notice["labStructAcronym_s"] = None
                     if "authIdHal_s" not in notice:
                         notice["authIdHal_s"] = None
+                    if "nb_authors" not in notice:
+                        notice["nb_authors"] = None
                     if "authFullNameFormIDPersonIDIDHal_fs" not in notice:
                         notice["authFullNameFormIDPersonIDIDHal_fs"] = None
                     if "authFullName_s" not in notice:
@@ -312,31 +314,21 @@ while increment < count:
                         notice["linkExtId_s"] = None
                     if "linkExtUrl_s" not in notice:
                         notice["linkExtUrl_s"] = None
-                    if "modifiedDateY_i" not in notice:
-                        notice["modifiedDateY_i"] = None
-                    if "collCode_s" not in notice:
-                        notice["collCode_s"] = None
-                    if "journalTitle_s" not in notice:
-                        notice["journalTitle_s"] = None
-                    if "journalTitleAbbr_s" not in notice:
-                        notice["journalTitleAbbr_s"] = None
-                    if "journalId_i" not in notice:
-                        notice["journalId_i"] = None
-                    if "instStructId_i" not in notice:
-                        notice["instStructId_i"] = None
-                    if "instStructAcronym_s" not in notice:
-                        notice["instStructAcronym_s"] = None
 
-                    # traitement pour l'étude du vocabulaire (évolution SI/SIC)
-                    if "fr_title_s" not in notice:
-                        notice["fr_title_s"] = None
-                    if "en_title_s" not in notice:
-                        notice["en_title_s"] = None
-                    if "fr_abstract_s" not in notice:
-                        notice["fr_abstract_s"] = None
-                    if "en_abstract_s" not in notice:
-                        notice["en_abstract_s"] = None
+                        # formatter
+                    notice["inst_name"] = []
+                    notice["lab_name"] = []
 
+                    if notice["instStructIdName_fs"] is not None:
+                        for inst in notice["instStructIdName_fs"]:
+                            notice["inst_name"].append(inst.split("_FacetSep_")[1])
+                    else:
+                        notice["inst_name"] = None
+                    if notice["labStructIdName_fs"] is not None:
+                        for lab in notice["labStructIdName_fs"]:
+                            notice["lab_name"].append(lab.split("_FacetSep_")[1])
+                    else:
+                        notice["lab_name"] = None
 
                     notice_short = {
                         "docid": notice["docid"],
@@ -344,21 +336,6 @@ while increment < count:
                         "halId_s": notice["halId_s"],
                         "docType_s": notice["docType_s"],
                         "uri_s": notice["uri_s"],
-
-                        "fr_title_s": notice["fr_title_s"],
-                        "en_title_s": notice["en_title_s"],
-
-                        "fr_abstract_s": notice["fr_abstract_s"],
-                        "en_abstract_s": notice["en_abstract_s"],
-
-                        "collCode_s": notice["collCode_s"],
-                        "journalId_i": notice["journalId_i"],
-                        "journalTitle_s": notice["journalTitle_s"],
-                        "journalTitleAbbr_s": notice["journalTitleAbbr_s"],
-
-                        "labStructId_i": notice["labStructId_i"],
-
-                        "authors_halIds_percentage" : notice["authors_halIds_percentage"],
 
                         "contributorFullNameId_fs": notice["contributorFullNameId_fs"],
                         "authFullNameFormIDPersonIDIDHal_fs": notice["authFullNameFormIDPersonIDIDHal_fs"],
@@ -372,11 +349,13 @@ while increment < count:
 
                         "contributorId_i": notice["contributorId_i"],
 
+                        "nb_authors": notice["nb_authors"],
+
                         "instStructIdName_fs": notice["instStructIdName_fs"],
                         "labStructIdName_fs": notice["labStructIdName_fs"],
 
-                        "instStructAcronym_s": notice["instStructAcronym_s"],
-                        "labStructAcronym_s": notice["labStructAcronym_s"],
+                        "inst_name": notice["inst_name"],
+                        "lab_name": notice["lab_name"],
 
                         "submittedDate_tdate": notice["submittedDate_tdate"],
                         "modifiedDate_tdate": notice["modifiedDate_tdate"],

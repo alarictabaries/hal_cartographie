@@ -6,14 +6,14 @@ from sklearn.tree import DecisionTreeClassifier
 from eland.ml import MLModel
 import numpy as np
 
-metric = "field_citation_ratio"
+metric = "times_viewed"
 
 df = ed.DataFrame(
     es_client="http://elastic:" + os.environ.get('ES_PASSWORD') + "@localhost:9200/",
     es_index_pattern="hal4",
 )
-df = df.query("submittedDateY_i  < 2020")
-df = df.query("submittedDateY_i  > 2016")
+df = df.query("submittedDateY_i  < 2018")
+df = df.query("submittedDateY_i  > 2014")
 df = df.query(metric + ' >= 0')
 # must -> shs | must_not -> stm
 # df = df.es_match("ART", columns=["docType_s"])
