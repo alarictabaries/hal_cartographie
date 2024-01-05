@@ -24,7 +24,7 @@ def update_specific_notice(notice):
         # overkill security
         if hal_metrics["deleted_notice"]:
             # notice["deleted_notice"] = True
-            es.update(index="hal4", id=notice["docid"], body={"doc": {"deleted": True}})
+            es.update(index="hal-2023", id=notice["docid"], body={"doc": {"deleted": True}})
             print("Notice {} is marked as deleted".format(notice["halId_s"]))
             # es.delete(index="hal4", id=notice["docid"])
             return True
@@ -59,14 +59,14 @@ def update_specific_notice(notice):
     if "times_viewed" in hal_metrics or "times_downloaded" in hal_metrics:
         if notice["doiId_s"] is not None:
             if "times_cited" in dimensions_metrics or "field_citation_ratio" in dimensions_metrics or 'error' in dimensions_metrics or notice["doiId_s"] is None:
-                es.update(index="hal4", id=notice["docid"], body={
+                es.update(index="hal-2023", id=notice["docid"], body={
                     "doc": {"times_cited": notice["times_cited"],
                             "field_citation_ratio": notice["field_citation_ratio"],
                             "relative_citation_ratio": notice["relative_citation_ratio"],
                             "times_viewed": notice["times_viewed"], "times_downloaded": notice["times_downloaded"],
                             "metrics_harvested_on": datetime.now().isoformat()}})
         else:
-            es.update(index="hal4", id=notice["docid"], body={
+            es.update(index="hal-2023", id=notice["docid"], body={
                 "doc": {"times_cited": notice["times_cited"], "field_citation_ratio": notice["field_citation_ratio"], "relative_citation_ratio": notice["relative_citation_ratio"],
                         "times_viewed": notice["times_viewed"], "times_downloaded": notice["times_downloaded"],
                         "metrics_harvested_on": datetime.now().isoformat()}})
@@ -131,13 +131,13 @@ def update_notices(gte, lte, update_lt):
             }
         }
 
-    count = es.count(index="hal4", body=q)["count"]
+    count = es.count(index="hal-2023", body=q)["count"]
     if count == 0:
         pass
     else:
         print("Thread (start) : Processing {} notices".format(count))
         # preserve_order=True
-        res_scope = scan(es, index="hal4", query=q, scroll="60m", clear_scroll=True)
+        res_scope = scan(es, index="hal-2023", query=q, scroll="60m", clear_scroll=True)
         # "no search context found for id..."
         try:
             for doc in res_scope:
@@ -151,8 +151,8 @@ def update_notices(gte, lte, update_lt):
 
 
 # scope...
-min_submitted_year = 2002
-max_submitted_year = 2022
+min_submitted_year = 2006
+max_submitted_year = 2008
 
 # harvested_on before....
 update_lt = "2022-11-21T17:18:02.000Z"

@@ -39,8 +39,8 @@ rows = 10000
 # lte = 2020
 # to-do : >"2017-07-01T00:00:00Z"
 
-gte = "2022-10-01T00:00:00Z"
-lte = "2023-01-01T00:00:00Z"
+gte = "2023-10-01T00:00:00Z"
+lte = "2024-01-01T00:00:00Z"
 
 # vérifie si le nom du contributeur est un nom de personne
 def is_name(name):
@@ -245,6 +245,9 @@ while increment < count:
 
                     notice["deposit_delta"] = deposit_delta
 
+                    if "modifiedDate_tdate" in notice:
+                        notice["modified_delta"] = parser.parse(notice["modifiedDate_tdate"]) - parser.parse(notice["submittedDate_tdate"])
+
                     """
                     # get metrics
                     hal_metrics = hal.get_metrics(notice["halId_s"])
@@ -260,6 +263,10 @@ while increment < count:
                         if "field_citation_ratio" in dimensions_metrics:
                             notice["field_citation_ratio"] = dimensions_metrics["field_citation_ratio"]
                     """
+                    if "count_authors" not in notice:
+                        notice["count_authors"] = None
+                    if "count_halIds" not in notice:
+                        notice["count_halIds"] = None
 
                     # filtres pour les éventuelles erreurs ES
                     if "domain_s" not in notice:
@@ -276,6 +283,10 @@ while increment < count:
                     if "field_citation_ratio" not in notice:
                         notice["field_citation_ratio"] = None
                     """
+                    if "modified_delta" not in notice:
+                        notice["modified_delta"] = None
+                    if "deposit_delta" not in notice:
+                        notice["deposit_delta"] = None
                     if "authors_halIds_percentage" not in notice:
                         notice["authors_halIds_percentage"] = None
                     if 'contributorId_i' not in notice:
@@ -412,6 +423,12 @@ while increment < count:
                         "linkExtId_s": notice["linkExtId_s"],
                         "linkExtUrl_s": notice["linkExtUrl_s"],
 
+                        "deposit_delta": notice["deposit_delta"].total_seconds(),
+                        "modified_delta": notice["modified_delta"].total_seconds(),
+
+                        "count_authors": notice["count_authors"],
+                        "count_halIds": notice["count_halIds"],
+
                         "harvested_on": datetime.now().replace(second=0, microsecond=0)
                     }
 
@@ -433,7 +450,7 @@ while increment < count:
                     # if upd_count > 0:
                     #     es.update(index="hal4", id=notice["docid"], body={"doc": notice_short})
                     # else:
-                    res = es.index(index="hal4", id=notice["docid"], document=notice_short)
+                    res = es.index(index="hal-2023", id=notice["docid"], document=notice_short)
                     if res["_shards"]["successful"] == 0:
                         print("Error indexing")
                         print(notice_short)
