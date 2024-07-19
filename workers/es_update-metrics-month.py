@@ -18,15 +18,15 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def update_specific_notice(notice):
     # get HAL metrics
-    hal_metrics = hal.get_metrics(notice["uri_s"])
+    hal_metrics = hal.get_metrics_v2(notice["uri_s"])
 
     if "deleted_notice" in hal_metrics:
         # overkill security
         if hal_metrics["deleted_notice"]:
             # notice["deleted_notice"] = True
-            es.update(index="hal2", id=notice["docid"], body={"doc": {"deleted": True}})
+            es.update(index="hal-2023", id=notice["docid"], body={"doc": {"deleted": True}})
             print("Notice {} is marked as deleted".format(notice["halId_s"]))
-            # es.delete(index="hal2", id=notice["docid"])
+            # es.delete(index="hal-2023", id=notice["docid"])
             return True
 
     if "times_viewed" in hal_metrics:
@@ -56,13 +56,13 @@ def update_specific_notice(notice):
         if notice["doiId_s"] is not None:
             if "times_cited" in dimensions_metrics or "field_citation_ratio" in dimensions_metrics or 'error' in dimensions_metrics or \
                     notice["doiId_s"] is None:
-                es.update(index="hal2", id=notice["docid"], body={
+                es.update(index="hal-2023", id=notice["docid"], body={
                     "doc": {"times_cited": notice["times_cited"],
                             "field_citation_ratio": notice["field_citation_ratio"],
                             "times_viewed": notice["times_viewed"], "times_downloaded": notice["times_downloaded"],
                             "metrics_harvested_on": datetime.now().isoformat()}})
         else:
-            es.update(index="hal2", id=notice["docid"], body={
+            es.update(index="hal-2023", id=notice["docid"], body={
                 "doc": {"times_cited": notice["times_cited"], "field_citation_ratio": notice["field_citation_ratio"],
                         "times_viewed": notice["times_viewed"], "times_downloaded": notice["times_downloaded"],
                         "metrics_harvested_on": datetime.now().isoformat()}})
@@ -126,13 +126,15 @@ def update_notices(gte, lte, update_lt):
             }
         }
 
-    count = es.count(index="hal2", body=q)["count"]
+    print(q)
+
+    count = es.count(index="hal-2023", body=q)["count"]
     if count == 0:
         pass
     else:
         print("Thread (start) : Processing {} notices".format(count))
         # preserve_order=True
-        res_scope = scan(es, index="hal2", query=q, scroll="60m", clear_scroll=True)
+        res_scope = scan(es, index="hal-2023", query=q, scroll="60m", clear_scroll=True)
         # "no search context found for id..."
         try:
             for doc in res_scope:
@@ -146,15 +148,25 @@ def update_notices(gte, lte, update_lt):
 
 
 # scope...
-min_submitted_year = "2022-11-01"
-max_submitted_year = "2022-11-"
+min_submitted_year = "2009-02-01"
+max_submitted_year = "2009-02-"
 
 # harvested_on before....
 update_lt = "2022-11-21T17:18:02.000Z"
 
 print(time.strftime("%H:%M:%S", time.localtime()) + ": Scraping started")
 
-update_notices("2022-11-30", "2022-12-01", update_lt)
+# update for a single month...
+# update_notices("2009-02-01", "2009-03-01", update_lt)  ["2014-02-01", "2014-03-01"],
+
+periods = [# ["2015-03-01", "2015-04-01"],["2015-05-01", "2015-06-01"], ["2015-11-01", "2015-12-01"], ["2015-12-01", "2016-01-01"],
+           # ["2014-03-01", "2014-04-01"], ["2014-02-01", "2014-03-01"], ["2014-04-01", "2014-05-01"],
+           # ["2016-01-01", "2016-02-01"], ["2016-03-01", "2016-04-01"], ["2016-09-01", "2016-10-01"], ["2016-11-01", "2016-12-01"], ["2016-12-01", "2017-01-01"]]
+           # ["2019-02-01", "2019-03-01"], ["2019-07-01", "2019-08-01"],
+           ["2020-12-01", "2021-01-01"], ["2020-05-01", "2020-06-01"]]
+for period in periods:
+    t = threading.Thread(target=update_notices, args=(period[0], period[1], update_lt))
+    t.start()
 
 # step = 1
 # for h in range(0, 23, step):

@@ -15,6 +15,8 @@ es = Elasticsearch(hosts="http://elastic:" + os.environ.get('ES_PASSWORD') + "@l
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+index = "hal-2023"
+
 
 def get_contributorId(notice):
     res_status_ok = False
@@ -75,7 +77,7 @@ def update_specific_notice(notice):
                 }
             }
 
-            count = es.count(index="hal4", body=q_contributor_simple)["count"]
+            count = es.count(index=index, body=q_contributor_simple)["count"]
             if count > 0:
                 notice["contributor_type"] = "intermediate_author"
             else:
@@ -101,7 +103,7 @@ def update_specific_notice(notice):
                     }
                 }
 
-                count = es.count(index="hal4", body=q_contributor_simple)["count"]
+                count = es.count(index=index, body=q_contributor_simple)["count"]
                 if count > 0:
                     notice["contributor_type"] = "intermediate_author"
 
@@ -130,7 +132,7 @@ def update_specific_notice(notice):
             }
         }
 
-        count = es.count(index="hal4", body=f_q_contributor)["count"]
+        count = es.count(index=index, body=f_q_contributor)["count"]
 
         notice["behavior"] = "one-shot"
 
@@ -146,7 +148,7 @@ def update_specific_notice(notice):
             #     years.append({"year": y, "trigger": False})
 
             if count > 1:
-                aggs = es.search(index="hal4", body=q_contributor)
+                aggs = es.search(index=index, body=q_contributor)
 
                 for agg in aggs["aggregations"]["years"]["buckets"]:
                     scope_year = int(agg["key"])
@@ -177,7 +179,7 @@ def update_specific_notice(notice):
             elif has_previous is False and has_next is False:
                 notice["behavior"] = "one-shot"
 
-            es.update(index="hal4", id=notice["docid"], body={"doc": {"behavior": notice["behavior"], "contributorId_i": notice["contributorId_i"], "contributor_type": notice["contributor_type"]}})
+            es.update(index=index, id=notice["docid"], body={"doc": {"behavior": notice["behavior"], "contributorId_i": notice["contributorId_i"], "contributor_type": notice["contributor_type"]}})
 
     # else:
     # es.update(index="hal4", id=notice["docid"], body={"doc": {"deleted": True}})
@@ -206,24 +208,24 @@ def update_notices(gte, lte):
         }
     }
 
-    q = {
-        "query": {
-            "range": {
-                "submittedDate_tdate": {
-                    "gte": gte,
-                    "lte": lte
-                }
-            }
-        }
-    }
+    # q = {
+    #     "query": {
+    #         "range": {
+    #             "submittedDate_tdate": {
+    #                 "gte": gte,
+    #                 "lte": lte
+    #             }
+    #         }
+    #     }
+    # }
 
-    count = es.count(index="hal4", body=q)["count"]
+    count = es.count(index=index, body=q)["count"]
     if count == 0:
         pass
     else:
         print("Thread (start) : Processing {} notices".format(count))
         # preserve_order=True
-        res_scope = scan(es, index="hal4", query=q, scroll="60m", clear_scroll=True)
+        res_scope = scan(es, index=index, query=q, scroll="60m", clear_scroll=True)
         # "no search context found for id..."
         for doc in res_scope:
             notice = doc["_source"]
@@ -233,12 +235,12 @@ def update_notices(gte, lte):
 
 
 # scope...
-min_submitted_year = 2001
-max_submitted_year = 2022
+min_submitted_year = 2008
+max_submitted_year = 2008
 
 print(time.strftime("%H:%M:%S", time.localtime()) + ": Scraping started")
 
-step = 10
+step = 5
 for year in range(min_submitted_year, max_submitted_year + 1):
     for month in range(1, 13):
 
@@ -258,5 +260,7 @@ for year in range(min_submitted_year, max_submitted_year + 1):
                 if upper_limit_day != 0:
                     gte = str(year) + "-" + str(month).zfill(2) + "-" + str(day).zfill(2)
                     lte = str(year) + "-" + str(month).zfill(2) + "-" + str(upper_limit_day).zfill(2)
+                    print(gte)
+                    print(lte)
                     t = threading.Thread(target=update_notices, args=(gte, lte))
                     t.start()

@@ -12,32 +12,7 @@ def lolvelty(es, index, doc_id, fields,
              minimum_should_match=0.3,
              human_friendly=True,
              total=None):
-    """Simple statistical measurement of novelty. First,
-    the 1000 most similar documents are retrieved
-    from elasticsearch, scored by tfidf and normalised to
-    the document itself. Novelty is then defined as
-    (1 - quantile), where the quantile is defined by the user.
-    "Novel" documents are intuitively very seperated from lower
-    quantile (i.e. unrelated) documents, and so using a quantile
-    of e.g. 25% leads to intuitive results.
-    The score is optionally, rescaled to have a human-friendly
-    scale, since humans don't deal well with fractions.
-    Args:
-        es (elasticsearch.Elasticsearch): Elasticsearch object.
-        index (str): Elasticsearch index to query.
-        doc_id (str): Document id in Elasticsearch to rank.
-        fields (list): List of fields to determine novelty from.
-        max_query_terms (int): Maximum number of terms to determine
-                               similarity from.
-        max_doc_frac (float): Maximum fraction of documents a term can
-                              be present in (cuts out stop words).
-        minimum_should_match (float): Minimum number of query terms that
-                                      should be present in all documents.
-        total (int): Total count of documents in the index. Pass this in
-                     to save a little processing time.
-    Returns:
-        score (float): A novelty score.
-    """
+
     # Calculate total if required
     if total is None:
         r = es.count(index=index,
